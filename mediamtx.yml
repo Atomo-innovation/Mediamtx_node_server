@@ -1,0 +1,34 @@
+###############################################
+# MediaMTX Configuration — RTSP → WHEP Demo
+###############################################
+
+logLevel: info
+
+# RTSP server (internal, used to pull from camera)
+rtsp: yes
+rtspAddress: :8554
+
+# Disable unused protocols
+rtmp: no
+hls: no
+
+# WebRTC / WHEP — browser connects here
+webrtc: yes
+webrtcAddress: :8889
+
+# REST API — used by Node.js /api/status
+api: yes
+apiAddress: :9997
+
+###############################################
+# Paths
+###############################################
+paths:
+  camera:
+    source: rtsp://admin:admin123456@192.168.1.10:8554/profile0
+    sourceOnDemand: no
+    sourceProtocol: tcp
+
+    # No auth required to read (lock down in production)
+    readUser:
+    readPass:

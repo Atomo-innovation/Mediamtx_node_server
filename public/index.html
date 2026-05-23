@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RTSP → WHEP Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg:       #0a0c0f;
+    --panel:    #111418;
+    --border:   #1e2530;
+    --accent:   #00e5ff;
+    --accent2:  #ff3d57;
+    --ok:       #00e676;
+    --warn:     #ffab00;
+    --text:     #cdd6e0;
+    --muted:    #4a5568;
+    --mono:     'Share Tech Mono', monospace;
+    --sans:     'Barlow', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    border: 2px solid var(--accent);
+    display: grid; place-items: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    animation: borderPulse 3s ease-in-out infinite;
+  }
+  @keyframes borderPulse {
+    0%,100% { border-color: var(--accent); box-shadow: 0 0 0 0 transparent; }
+    50%      { border-color: var(--accent); box-shadow: 0 0 8px 2px rgba(0,229,255,.25); }
+  }
+  .logo-text { font-size: 13px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; }
+  .logo-sub   { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 20px; }
+
+  /* ── Status pill ── */
+  .status-pill {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 11px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,.03);
+    border-radius: 2px;
+    transition: border-color .3s, background .3s;
+  }
+  .status-pill.ok     { border-color: var(--ok);    background: rgba(0,230,118,.06); }
+  .status-pill.warn   { border-color: var(--warn);  background: rgba(255,171,0,.06); }
+  .status-pill.error  { border-color: var(--accent2); background: rgba(255,61,87,.06); }
+
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted);
+    transition: background .3s;
+    flex-shrink: 0;
+  }
+  .status-pill.ok .dot    { background: var(--ok);    animation: blink 2s ease-in-out infinite; }
+  .status-pill.warn .dot  { background: var(--warn);  animation: blink 1.2s ease-in-out infinite; }
+  .status-pill.error .dot { background: var(--accent2); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Main layout ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 0;
+    height: calc(100vh - 61px);
+  }
+
+  /* ── Video area ── */
+  .video-wrap {
+    position: relative;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Corner markers */
+  .corners { position: absolute; inset: 16px; pointer-events: none; }
+  .corner {
+    position: absolute;
+    width: 18px; height: 18px;
+    border-color: var(--accent);
+    border-style: solid;
+    opacity: .6;
+  }
+  .corner.tl { top:0; left:0;  border-width: 2px 0 0 2px; }
+  .corner.tr { top:0; right:0; border-width: 2px 2px 0 0; }
+  .corner.bl { bottom:0; left:0;  border-width: 0 0 2px 2px; }
+  .corner.br { bottom:0; right:0; border-width: 0 2px 2px 0; }
+
+  /* Overlay when not playing */
+  .overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+    background: rgba(10,12,15,.85);
+    transition: opacity .4s;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay-icon {
+    width: 72px; height: 72px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: grid; place-items: center;
+  }
+  .overlay-icon svg { width: 28px; height: 28px; fill: var(--muted); }
+
+  .overlay-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: .1em;
+    text-align: center;
+    line-height: 1.8;
+  }
+
+  /* Live badge */
+  .live-badge {
+    position: absolute;
+    top: 20px; left: 20px;
+    background: var(--accent2);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .15em;
+    padding: 4px 10px;
+    display: flex; align-items: center; gap: 6px;
+    opacity: 0;
+    transition: opacity .4s;
+  }
+  .live-badge.visible { opacity: 1; }
+  .live-badge .dot { background: #fff; width: 6px; height: 6px; animation: blink 1s infinite; }
+
+  /* Stream label */
+  .stream-label {
+    position: absolute;
+    bottom: 16px; left: 20px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: rgba(255,255,255,.4);
+    letter-spacing: .08em;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--panel);
+  }
+
+  .sidebar-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    width: 100%;
+    padding: 11px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .1em;
+    border: 1px solid;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background .2s, color .2s, box-shadow .2s;
+    text-transform: uppercase;
+  }
+  .btn-connect {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,255,.04);
+  }
+  .btn-connect:hover:not(:disabled) {
+    background: rgba(0,229,255,.12);
+    box-shadow: 0 0 16px rgba(0,229,255,.2);
+  }
+  .btn-connect:disabled { opacity: .4; cursor: not-allowed; }
+
+  .btn-disconnect {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(255,61,87,.04);
+    margin-top: 8px;
+    display: none;
+  }
+  .btn-disconnect:hover {
+    background: rgba(255,61,87,.12);
+  }
+  .btn-disconnect.visible { display: block; }
+
+  /* ── Info rows ── */
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    font-size: 12px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: .05em; }
+  .info-value { font-family: var(--mono); font-size: 11px; color: var(--text); text-align: right; max-width: 55%; word-break: break-all; }
+  .info-value.ok    { color: var(--ok); }
+  .info-value.warn  { color: var(--warn); }
+  .info-value.error { color: var(--accent2); }
+
+  /* ── Log ── */
+  .log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 1.9;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .log-entry { display: flex; gap: 10px; }
+  .log-time  { color: var(--muted); flex-shrink: 0; }
+  .log-msg.info  { color: var(--text); }
+  .log-msg.ok    { color: var(--ok); }
+  .log-msg.error { color: var(--accent2); }
+  .log-msg.warn  { color: var(--warn); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">MTX</div>
+    <div>
+      <div class="logo-text">MediaMTX / WHEP</div>
+      <div class="logo-sub">WebRTC Live Viewer</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill" id="statusPill">
+      <div class="dot"></div>
+      <span id="statusText">IDLE</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main ── -->
+<main>
+
+  <!-- Video -->
+  <div class="video-wrap">
+    <video id="video" autoplay playsinline muted></video>
+
+    <div class="corners">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <div class="overlay-icon">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      </div>
+      <div class="overlay-label" id="overlayText">
+        STREAM INACTIVE<br>Press CONNECT to start
+      </div>
+    </div>
+
+    <div class="live-badge" id="liveBadge">
+      <div class="dot"></div>
+      LIVE
+    </div>
+
+    <div class="stream-label" id="streamLabel"></div>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+
+    <!-- Controls -->
+    <div class="sidebar-section">
+      <div class="section-title">Controls</div>
+      <button class="btn btn-connect" id="connectBtn" onclick="connect()">▶ Connect</button>
+      <button class="btn btn-disconnect" id="disconnectBtn" onclick="disconnect()">■ Disconnect</button>
+    </div>
+
+    <!-- Stream info -->
+    <div class="sidebar-section">
+      <div class="section-title">Stream Info</div>
+      <div class="info-row">
+        <span class="info-label">Source</span>
+        <span class="info-value" style="font-size:9px">192.168.1.10:8554</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Path</span>
+        <span class="info-value">/camera</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Protocol</span>
+        <span class="info-value">WHEP / WebRTC</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Transport</span>
+        <span class="info-value">RTSP/TCP</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">ICE State</span>
+        <span class="info-value" id="iceState">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Conn State</span>
+        <span class="info-value" id="connState">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Video</span>
+        <span class="info-value" id="videoInfo">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Audio</span>
+        <span class="info-value" id="audioInfo">—</span>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="sidebar-section" style="flex:1; display:flex; flex-direction:column; padding-bottom:0;">
+      <div class="section-title">Log</div>
+    </div>
+    <div class="log" id="log"></div>
+
+  </aside>
+</main>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+
+let pc = null;
+
+// ── Logging ──────────────────────────────────────────────────────────────────
+
+function log(msg, type = "info") {
+  const logEl = document.getElementById("log");
+  const now = new Date().toTimeString().slice(0,8);
+  const entry = document.createElement("div");
+  entry.className = "log-entry";
+  entry.innerHTML = `<span class="log-time">${now}</span><span class="log-msg ${type}">${msg}</span>`;
+  logEl.appendChild(entry);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ── Status pill ───────────────────────────────────────────────────────────────
+
+function setStatus(label, cls) {
+  const pill = document.getElementById("statusPill");
+  const text = document.getElementById("statusText");
+  pill.className = "status-pill " + cls;
+  text.textContent = label;
+}
+
+// ── WHEP Connect ─────────────────────────────────────────────────────────────
+
+async function connect() {
+  if (pc) disconnect();
+
+  document.getElementById("connectBtn").disabled = true;
+  setStatus("CONNECTING…", "warn");
+  log("Initiating WHEP connection…", "info");
+
+  const WHEP_URL = "/whep/camera";
+
+  pc = new RTCPeerConnection({
+    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+  });
+
+  // Add receivers for video and audio
+  pc.addTransceiver("video", { direction: "recvonly" });
+  pc.addTransceiver("audio", { direction: "recvonly" });
+
+  // Attach tracks to video element
+  const video = document.getElementById("video");
+  const ms = new MediaStream();
+  video.srcObject = ms;
+
+  pc.ontrack = (e) => {
+    ms.addTrack(e.track);
+    log(`Track received: ${e.track.kind}`, "ok");
+
+    if (e.track.kind === "video") {
+      document.getElementById("videoInfo").textContent = "H.264";
+      document.getElementById("videoInfo").className = "info-value ok";
+    }
+    if (e.track.kind === "audio") {
+      document.getElementById("audioInfo").textContent = "AAC / PCM";
+      document.getElementById("audioInfo").className = "info-value ok";
+    }
+  };
+
+  pc.oniceconnectionstatechange = () => {
+    const s = pc.iceConnectionState;
+    const el = document.getElementById("iceState");
+    el.textContent = s.toUpperCase();
+    el.className = "info-value " + (s === "connected" || s === "completed" ? "ok" : s === "failed" ? "error" : "warn");
+    log(`ICE: ${s}`, s === "connected" || s === "completed" ? "ok" : "info");
+  };
+
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    const el = document.getElementById("connState");
+    el.textContent = s.toUpperCase();
+    el.className = "info-value " + (s === "connected" ? "ok" : s === "failed" || s === "disconnected" ? "error" : "warn");
+    log(`Connection: ${s}`, s === "connected" ? "ok" : "info");
+
+    if (s === "connected") {
+      setStatus("LIVE", "ok");
+      document.getElementById("overlay").classList.add("hidden");
+      document.getElementById("liveBadge").classList.add("visible");
+      document.getElementById("streamLabel").textContent = "rtsp://192.168.1.10:8554/profile0";
+      document.getElementById("disconnectBtn").classList.add("visible");
+    }
+    if (s === "failed" || s === "disconnected") {
+      setStatus("DISCONNECTED", "error");
+      document.getElementById("overlay").classList.remove("hidden");
+      document.getElementById("overlayText").textContent = "CONNECTION LOST\nRetrying…";
+      document.getElementById("liveBadge").classList.remove("visible");
+      // Auto-retry after 3s
+      setTimeout(() => { if (s === "failed") connect(); }, 3000);
+    }
+  };
+
+  // ── SDP Offer / Answer (WHEP) ─────────────────────────────────────────────
+
+  try {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    log("SDP offer created, posting to MediaMTX…", "info");
+
+    // Wait for ICE gathering to complete
+    await new Promise((resolve) => {
+      if (pc.iceGatheringState === "complete") return resolve();
+      pc.onicegatheringstatechange = () => {
+        if (pc.iceGatheringState === "complete") resolve();
+      };
+      setTimeout(resolve, 3000); // fallback
+    });
+
+    const resp = await fetch(WHEP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/sdp" },
+      body: pc.localDescription.sdp,
+    });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      throw new Error(`WHEP ${resp.status}: ${body}`);
+    }
+
+    const answerSdp = await resp.text();
+    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+    log("SDP answer received from MediaMTX", "ok");
+
+  } catch (err) {
+    log("Error: " + err.message, "error");
+    setStatus("ERROR", "error");
+    document.getElementById("overlayText").textContent = "CONNECTION FAILED\n" + err.message;
+    document.getElementById("connectBtn").disabled = false;
+    if (pc) { pc.close(); pc = null; }
+  }
+}
+
+// ── Disconnect ────────────────────────────────────────────────────────────────
+
+function disconnect() {
+  if (pc) { pc.close(); pc = null; }
+  document.getElementById("video").srcObject = null;
+  document.getElementById("overlay").classList.remove("hidden");
+  document.getElementById("overlayText").textContent = "STREAM INACTIVE\nPress CONNECT to start";
+  document.getElementById("liveBadge").classList.remove("visible");
+  document.getElementById("streamLabel").textContent = "";
+  document.getElementById("connectBtn").disabled = false;
+  document.getElementById("disconnectBtn").classList.remove("visible");
+  document.getElementById("iceState").textContent = "—";
+  document.getElementById("connState").textContent = "—";
+  document.getElementById("videoInfo").textContent = "—";
+  document.getElementById("audioInfo").textContent = "—";
+  setStatus("IDLE", "");
+  log("Disconnected", "warn");
+}
+
+// ── Poll stream health ────────────────────────────────────────────────────────
+
+async function pollStatus() {
+  try {
+    const r = await fetch("/api/status");
+    const d = await r.json();
+    if (d.ok && d.stream) {
+      const ready = d.stream.ready;
+      if (!pc && ready) log("Camera stream is ready on MediaMTX", "ok");
+    }
+  } catch (_) { /* ignore during startup */ }
+}
+
+setInterval(pollStatus, 5000);
+pollStatus();
+
+log("WHEP viewer ready", "ok");
+</script>
+</body>
+</html>
