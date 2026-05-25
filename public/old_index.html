@@ -1,577 +1,818 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>RTSP → WHEP Viewer</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CCTV — Multi-Camera Dashboard</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
 
-  :root {
-    --bg:       #0a0c0f;
-    --panel:    #111418;
-    --border:   #1e2530;
-    --accent:   #00e5ff;
-    --accent2:  #ff3d57;
-    --ok:       #00e676;
-    --warn:     #ffab00;
-    --text:     #cdd6e0;
-    --muted:    #4a5568;
-    --mono:     'Share Tech Mono', monospace;
-    --sans:     'Barlow', sans-serif;
-  }
+:root {
+  --bg:      #080b0f;
+  --surface: #0d1117;
+  --card:    #111820;
+  --border:  #1c2535;
+  --accent:  #00d4ff;
+  --green:   #00e676;
+  --red:     #ff3b5c;
+  --amber:   #ffc107;
+  --text:    #c9d6e3;
+  --muted:   #3d5068;
+  --mono:    'Share Tech Mono', monospace;
+  --head:    'Rajdhani', sans-serif;
+}
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-  }
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--head);overflow:hidden}
 
-  /* ── Header ── */
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 28px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
+/* ── scanline overlay ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px);
+}
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .logo-icon {
-    width: 32px; height: 32px;
-    border: 2px solid var(--accent);
-    display: grid; place-items: center;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--accent);
-    letter-spacing: 0.05em;
-    animation: borderPulse 3s ease-in-out infinite;
-  }
-  @keyframes borderPulse {
-    0%,100% { border-color: var(--accent); box-shadow: 0 0 0 0 transparent; }
-    50%      { border-color: var(--accent); box-shadow: 0 0 8px 2px rgba(0,229,255,.25); }
-  }
-  .logo-text { font-size: 13px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; }
-  .logo-sub   { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+/* ═══════════════════════════════ LAYOUT ═══════════════════════════════ */
 
-  .header-right { display: flex; align-items: center; gap: 20px; }
+.shell{display:flex;flex-direction:column;height:100vh}
 
-  /* ── Status pill ── */
-  .status-pill {
-    display: flex; align-items: center; gap: 7px;
-    font-family: var(--mono); font-size: 11px;
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    background: rgba(255,255,255,.03);
-    border-radius: 2px;
-    transition: border-color .3s, background .3s;
-  }
-  .status-pill.ok     { border-color: var(--ok);    background: rgba(0,230,118,.06); }
-  .status-pill.warn   { border-color: var(--warn);  background: rgba(255,171,0,.06); }
-  .status-pill.error  { border-color: var(--accent2); background: rgba(255,61,87,.06); }
+/* ── Top bar ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:52px;flex-shrink:0;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  position:relative;
+}
+.topbar::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  opacity:.35;
+}
 
-  .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--muted);
-    transition: background .3s;
-    flex-shrink: 0;
-  }
-  .status-pill.ok .dot    { background: var(--ok);    animation: blink 2s ease-in-out infinite; }
-  .status-pill.warn .dot  { background: var(--warn);  animation: blink 1.2s ease-in-out infinite; }
-  .status-pill.error .dot { background: var(--accent2); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.brand{display:flex;align-items:center;gap:12px}
+.brand-box{
+  width:34px;height:34px;border:1.5px solid var(--accent);
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:9px;color:var(--accent);
+  letter-spacing:.05em;
+  box-shadow:0 0 12px rgba(0,212,255,.15);
+}
+.brand-name{font-size:17px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.brand-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:1px;letter-spacing:.1em}
 
-  /* ── Main layout ── */
-  main {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    gap: 0;
-    height: calc(100vh - 61px);
-  }
+.topbar-right{display:flex;align-items:center;gap:16px}
 
-  /* ── Video area ── */
-  .video-wrap {
-    position: relative;
-    background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border-right: 1px solid var(--border);
-  }
+.sys-time{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
 
-  video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    display: block;
-  }
+.pill{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 10px;border:1px solid var(--border);
+  font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+  background:rgba(255,255,255,.02);
+}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.pill.live .dot{background:var(--green);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 
-  /* Corner markers */
-  .corners { position: absolute; inset: 16px; pointer-events: none; }
-  .corner {
-    position: absolute;
-    width: 18px; height: 18px;
-    border-color: var(--accent);
-    border-style: solid;
-    opacity: .6;
-  }
-  .corner.tl { top:0; left:0;  border-width: 2px 0 0 2px; }
-  .corner.tr { top:0; right:0; border-width: 2px 2px 0 0; }
-  .corner.bl { bottom:0; left:0;  border-width: 0 0 2px 2px; }
-  .corner.br { bottom:0; right:0; border-width: 0 2px 2px 0; }
+.btn-add{
+  display:flex;align-items:center;gap:7px;
+  padding:7px 16px;
+  border:1px solid var(--accent);
+  background:rgba(0,212,255,.06);
+  color:var(--accent);
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+  cursor:pointer;text-transform:uppercase;
+  transition:background .2s,box-shadow .2s;
+}
+.btn-add:hover{background:rgba(0,212,255,.14);box-shadow:0 0 16px rgba(0,212,255,.2)}
+.btn-add svg{width:14px;height:14px;fill:currentColor}
 
-  /* Overlay when not playing */
-  .overlay {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 20px;
-    background: rgba(10,12,15,.85);
-    transition: opacity .4s;
-  }
-  .overlay.hidden { opacity: 0; pointer-events: none; }
+/* ── Body: sidebar + grid ── */
+.body{display:flex;flex:1;overflow:hidden}
 
-  .overlay-icon {
-    width: 72px; height: 72px;
-    border: 2px solid var(--border);
-    border-radius: 50%;
-    display: grid; place-items: center;
-  }
-  .overlay-icon svg { width: 28px; height: 28px; fill: var(--muted); }
+/* ── Sidebar ── */
+.sidebar{
+  width:240px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
 
-  .overlay-label {
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--muted);
-    letter-spacing: .1em;
-    text-align: center;
-    line-height: 1.8;
-  }
+.sidebar-head{
+  padding:14px 16px 10px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--muted);
+  text-transform:uppercase;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+#camCount{color:var(--accent)}
 
-  /* Live badge */
-  .live-badge {
-    position: absolute;
-    top: 20px; left: 20px;
-    background: var(--accent2);
-    color: #fff;
-    font-family: var(--mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .15em;
-    padding: 4px 10px;
-    display: flex; align-items: center; gap: 6px;
-    opacity: 0;
-    transition: opacity .4s;
-  }
-  .live-badge.visible { opacity: 1; }
-  .live-badge .dot { background: #fff; width: 6px; height: 6px; animation: blink 1s infinite; }
+.cam-list{flex:1;overflow-y:auto;padding:8px 0}
+.cam-list::-webkit-scrollbar{width:3px}
+.cam-list::-webkit-scrollbar-track{background:transparent}
+.cam-list::-webkit-scrollbar-thumb{background:var(--border)}
 
-  /* Stream label */
-  .stream-label {
-    position: absolute;
-    bottom: 16px; left: 20px;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: rgba(255,255,255,.4);
-    letter-spacing: .08em;
-  }
+.cam-item{
+  padding:10px 16px;
+  display:flex;align-items:center;gap:10px;
+  cursor:pointer;border-left:2px solid transparent;
+  transition:background .15s,border-color .15s;
+  position:relative;
+}
+.cam-item:hover{background:rgba(255,255,255,.03)}
+.cam-item.active{background:rgba(0,212,255,.05);border-left-color:var(--accent)}
 
-  /* ── Sidebar ── */
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    background: var(--panel);
-  }
+.cam-item-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--muted);flex-shrink:0;
+  transition:background .3s;
+}
+.cam-item.streaming .cam-item-dot{background:var(--green);animation:blink 2s infinite}
+.cam-item.error .cam-item-dot{background:var(--red)}
 
-  .sidebar-section {
-    padding: 20px;
-    border-bottom: 1px solid var(--border);
-  }
+.cam-item-info{flex:1;min-width:0}
+.cam-item-name{font-size:13px;font-weight:600;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cam-item-id{font-family:var(--mono);font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 
-  .section-title {
-    font-family: var(--mono);
-    font-size: 9px;
-    letter-spacing: .2em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .section-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+.cam-item-del{
+  opacity:0;width:20px;height:20px;display:grid;place-items:center;
+  color:var(--red);font-size:14px;cursor:pointer;flex-shrink:0;
+  transition:opacity .2s;border-radius:2px;
+}
+.cam-item-del:hover{background:rgba(255,59,92,.15)}
+.cam-item:hover .cam-item-del{opacity:1}
 
-  /* ── Buttons ── */
-  .btn {
-    width: 100%;
-    padding: 11px 16px;
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: .1em;
-    border: 1px solid;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: background .2s, color .2s, box-shadow .2s;
-    text-transform: uppercase;
-  }
-  .btn-connect {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0,229,255,.04);
-  }
-  .btn-connect:hover:not(:disabled) {
-    background: rgba(0,229,255,.12);
-    box-shadow: 0 0 16px rgba(0,229,255,.2);
-  }
-  .btn-connect:disabled { opacity: .4; cursor: not-allowed; }
+.sidebar-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:20px;text-align:center;
+}
+.sidebar-empty svg{width:36px;height:36px;fill:var(--muted);opacity:.5}
+.sidebar-empty p{font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.7}
 
-  .btn-disconnect {
-    border-color: var(--accent2);
-    color: var(--accent2);
-    background: rgba(255,61,87,.04);
-    margin-top: 8px;
-    display: none;
-  }
-  .btn-disconnect:hover {
-    background: rgba(255,61,87,.12);
-  }
-  .btn-disconnect.visible { display: block; }
+/* ── Grid area ── */
+.grid-area{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.grid-area::-webkit-scrollbar{width:4px}
+.grid-area::-webkit-scrollbar-thumb{background:var(--border)}
 
-  /* ── Info rows ── */
-  .info-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 7px 0;
-    border-bottom: 1px solid rgba(255,255,255,.04);
-    font-size: 12px;
-  }
-  .info-row:last-child { border-bottom: none; }
-  .info-label { color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: .05em; }
-  .info-value { font-family: var(--mono); font-size: 11px; color: var(--text); text-align: right; max-width: 55%; word-break: break-all; }
-  .info-value.ok    { color: var(--ok); }
-  .info-value.warn  { color: var(--warn); }
-  .info-value.error { color: var(--accent2); }
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
 
-  /* ── Log ── */
-  .log {
-    flex: 1;
-    overflow-y: auto;
-    padding: 12px 16px;
-    font-family: var(--mono);
-    font-size: 10px;
-    line-height: 1.9;
-    color: var(--muted);
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .log-entry { display: flex; gap: 10px; }
-  .log-time  { color: var(--muted); flex-shrink: 0; }
-  .log-msg.info  { color: var(--text); }
-  .log-msg.ok    { color: var(--ok); }
-  .log-msg.error { color: var(--accent2); }
-  .log-msg.warn  { color: var(--warn); }
+.grid-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;
+}
+.grid-empty svg{width:64px;height:64px;fill:var(--muted);opacity:.2}
+.grid-empty h2{font-size:22px;font-weight:600;letter-spacing:.1em;color:var(--muted)}
+.grid-empty p{font-family:var(--mono);font-size:11px;color:var(--muted);opacity:.6}
+
+/* ═══════════════════════════════ CAMERA CARD ═══════════════════════════ */
+
+.cam-card{
+  background:var(--card);border:1px solid var(--border);
+  display:flex;flex-direction:column;
+  animation:fadeIn .3s ease;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.card-header{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  background:rgba(255,255,255,.015);
+}
+.card-status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.card-name{font-size:15px;font-weight:700;letter-spacing:.08em;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-badge{
+  font-family:var(--mono);font-size:9px;padding:2px 8px;
+  border:1px solid var(--border);color:var(--muted);letter-spacing:.08em;
+  transition:all .3s;
+}
+.card-badge.live{border-color:var(--red);color:var(--red);background:rgba(255,59,92,.08)}
+.card-ctrl{
+  display:flex;align-items:center;gap:6px;margin-left:4px;
+}
+.card-btn{
+  padding:4px 10px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+  border:1px solid;cursor:pointer;transition:background .2s;text-transform:uppercase;
+}
+.card-btn.connect{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.04)}
+.card-btn.connect:hover{background:rgba(0,212,255,.12)}
+.card-btn.connect:disabled{opacity:.35;cursor:not-allowed}
+.card-btn.stop{border-color:var(--red);color:var(--red);background:rgba(255,59,92,.04)}
+.card-btn.stop:hover{background:rgba(255,59,92,.12)}
+
+/* ── Video wrapper ── */
+.card-video-wrap{
+  position:relative;background:#000;
+  aspect-ratio:16/9;overflow:hidden;
+}
+video{width:100%;height:100%;object-fit:cover;display:block}
+
+/* corner brackets */
+.brackets{position:absolute;inset:10px;pointer-events:none}
+.brk{position:absolute;width:14px;height:14px;border-color:var(--accent);border-style:solid;opacity:.5}
+.brk.tl{top:0;left:0;border-width:1.5px 0 0 1.5px}
+.brk.tr{top:0;right:0;border-width:1.5px 1.5px 0 0}
+.brk.bl{bottom:0;left:0;border-width:0 0 1.5px 1.5px}
+.brk.br{bottom:0;right:0;border-width:0 1.5px 1.5px 0}
+
+.card-overlay{
+  position:absolute;inset:0;
+  background:rgba(8,11,15,.82);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;transition:opacity .35s;
+}
+.card-overlay.hidden{opacity:0;pointer-events:none}
+.card-overlay svg{width:32px;height:32px;fill:var(--muted);opacity:.5}
+.card-overlay-txt{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;line-height:1.8;letter-spacing:.05em}
+
+.live-tag{
+  position:absolute;top:10px;left:10px;
+  display:flex;align-items:center;gap:5px;
+  background:var(--red);color:#fff;
+  font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.12em;
+  padding:3px 8px;opacity:0;transition:opacity .4s;
+}
+.live-tag.on{opacity:1}
+.live-tag .dot{width:5px;height:5px;border-radius:50%;background:#fff;animation:blink .9s infinite}
+
+.stream-src{
+  position:absolute;bottom:8px;left:10px;
+  font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.04em;
+}
+
+/* ── Card footer ── */
+.card-footer{
+  display:flex;gap:0;border-top:1px solid var(--border);
+}
+.stat{
+  flex:1;padding:7px 12px;border-right:1px solid var(--border);
+}
+.stat:last-child{border-right:none}
+.stat-label{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+.stat-value{font-family:var(--mono);font-size:11px;color:var(--text);margin-top:2px;transition:color .3s}
+.stat-value.ok{color:var(--green)}
+.stat-value.err{color:var(--red)}
+.stat-value.warn{color:var(--amber)}
+
+/* ═══════════════════════════════ MODAL ════════════════════════════════ */
+
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  display:flex;align-items:center;justify-content:center;
+  z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s;
+  backdrop-filter:blur(4px);
+}
+.modal-bg.open{opacity:1;pointer-events:all}
+
+.modal{
+  width:440px;background:var(--surface);border:1px solid var(--border);
+  padding:0;transform:translateY(16px);transition:transform .25s;
+  box-shadow:0 24px 64px rgba(0,0,0,.6);
+}
+.modal-bg.open .modal{transform:none}
+
+.modal-head{
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.modal-title{font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.modal-close{
+  width:28px;height:28px;display:grid;place-items:center;
+  border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;font-size:16px;transition:color .2s,border-color .2s;
+}
+.modal-close:hover{color:var(--red);border-color:var(--red)}
+
+.modal-body{padding:20px;display:flex;flex-direction:column;gap:16px}
+
+.field label{
+  display:block;font-family:var(--mono);font-size:9px;letter-spacing:.15em;
+  color:var(--muted);text-transform:uppercase;margin-bottom:6px;
+}
+.field input{
+  width:100%;padding:10px 12px;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--text);font-family:var(--mono);font-size:12px;
+  outline:none;transition:border-color .2s;
+}
+.field input:focus{border-color:var(--accent)}
+.field input::placeholder{color:var(--muted)}
+
+.field-hint{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;line-height:1.6}
+
+.modal-footer{
+  padding:14px 20px;border-top:1px solid var(--border);
+  display:flex;gap:8px;justify-content:flex-end;
+}
+.modal-btn{
+  padding:9px 20px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.1em;border:1px solid;cursor:pointer;
+  text-transform:uppercase;transition:background .2s;
+}
+.modal-btn.cancel{border-color:var(--border);color:var(--muted);background:transparent}
+.modal-btn.cancel:hover{border-color:var(--muted)}
+.modal-btn.save{border-color:var(--accent);color:var(--accent);background:rgba(0,212,255,.06)}
+.modal-btn.save:hover{background:rgba(0,212,255,.15)}
+.modal-btn.save:disabled{opacity:.35;cursor:not-allowed}
+
+.modal-err{
+  font-family:var(--mono);font-size:10px;color:var(--red);
+  padding:8px 12px;border:1px solid rgba(255,59,92,.3);
+  background:rgba(255,59,92,.05);display:none;
+}
+.modal-err.show{display:block}
 </style>
 </head>
 <body>
 
-<!-- ── Header ── -->
-<header>
-  <div class="logo">
-    <div class="logo-icon">MTX</div>
+<!-- ── Top bar ── -->
+<div class="shell">
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-box">CAM</div>
     <div>
-      <div class="logo-text">MediaMTX / WHEP</div>
-      <div class="logo-sub">WebRTC Live Viewer</div>
+      <div class="brand-name">NVR Dashboard</div>
+      <div class="brand-sub">MediaMTX · WHEP · Live</div>
     </div>
   </div>
-  <div class="header-right">
-    <div class="status-pill" id="statusPill">
-      <div class="dot"></div>
-      <span id="statusText">IDLE</span>
-    </div>
+  <div class="topbar-right">
+    <div class="pill live" id="sysStatus"><div class="dot"></div><span id="sysStatusTxt">SYSTEM OK</span></div>
+    <div class="sys-time" id="clock"></div>
+    <button class="btn-add" onclick="openModal()">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Add Camera
+    </button>
   </div>
 </header>
 
-<!-- ── Main ── -->
-<main>
-
-  <!-- Video -->
-  <div class="video-wrap">
-    <video id="video" autoplay playsinline muted></video>
-
-    <div class="corners">
-      <div class="corner tl"></div>
-      <div class="corner tr"></div>
-      <div class="corner bl"></div>
-      <div class="corner br"></div>
-    </div>
-
-    <div class="overlay" id="overlay">
-      <div class="overlay-icon">
-        <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-      </div>
-      <div class="overlay-label" id="overlayText">
-        STREAM INACTIVE<br>Press CONNECT to start
-      </div>
-    </div>
-
-    <div class="live-badge" id="liveBadge">
-      <div class="dot"></div>
-      LIVE
-    </div>
-
-    <div class="stream-label" id="streamLabel"></div>
-  </div>
+<!-- ── Body ── -->
+<div class="body">
 
   <!-- Sidebar -->
-  <aside class="sidebar">
-
-    <!-- Controls -->
-    <div class="sidebar-section">
-      <div class="section-title">Controls</div>
-      <button class="btn btn-connect" id="connectBtn" onclick="connect()">▶ Connect</button>
-      <button class="btn btn-disconnect" id="disconnectBtn" onclick="disconnect()">■ Disconnect</button>
+  <nav class="sidebar">
+    <div class="sidebar-head">
+      <span>Cameras</span>
+      <span id="camCount">0</span>
     </div>
-
-    <!-- Stream info -->
-    <div class="sidebar-section">
-      <div class="section-title">Stream Info</div>
-      <div class="info-row">
-        <span class="info-label">Source</span>
-        <span class="info-value" style="font-size:9px">192.168.1.10:8554</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Path</span>
-        <span class="info-value">/camera</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Protocol</span>
-        <span class="info-value">WHEP / WebRTC</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Transport</span>
-        <span class="info-value">RTSP/TCP</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">ICE State</span>
-        <span class="info-value" id="iceState">—</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Conn State</span>
-        <span class="info-value" id="connState">—</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Video</span>
-        <span class="info-value" id="videoInfo">—</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Audio</span>
-        <span class="info-value" id="audioInfo">—</span>
+    <div class="cam-list" id="camList">
+      <div class="sidebar-empty" id="sidebarEmpty">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        <p>No cameras added yet.<br>Click + Add Camera to begin.</p>
       </div>
     </div>
+  </nav>
 
-    <!-- Log -->
-    <div class="sidebar-section" style="flex:1; display:flex; flex-direction:column; padding-bottom:0;">
-      <div class="section-title">Log</div>
+  <!-- Grid -->
+  <div class="grid-area" id="gridArea">
+    <div class="grid-empty" id="gridEmpty">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      <h2>No Cameras</h2>
+      <p>Add an RTSP camera to start viewing</p>
     </div>
-    <div class="log" id="log"></div>
+    <div class="grid" id="grid"></div>
+  </div>
 
-  </aside>
-</main>
+</div>
+</div>
+
+<!-- ── Add Camera Modal ── -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">Add Camera</div>
+      <div class="modal-close" onclick="closeModal()">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-err" id="modalErr"></div>
+      <div class="field">
+        <label>Camera Name</label>
+        <input type="text" id="inName" placeholder="e.g. Front Door, Parking Lot…" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label>RTSP URL</label>
+        <input type="text" id="inUrl" placeholder="rtsp://user:pass@192.168.1.x:554/stream"/>
+        <div class="field-hint">Supports RTSP/TCP. Authentication via URL credentials.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-btn save" id="saveBtn" onclick="saveCamera()">Save & Connect</button>
+    </div>
+  </div>
+</div>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════════════════════════════════
 
-let pc = null;
+let cameras   = [];          // [{id, name, url}]
+let peerConns = {};          // id → RTCPeerConnection
+let cardState = {};          // id → { iceState, connState }
 
-// ── Logging ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// Clock
+// ═══════════════════════════════════════════════════════════════════════
 
-function log(msg, type = "info") {
-  const logEl = document.getElementById("log");
-  const now = new Date().toTimeString().slice(0,8);
-  const entry = document.createElement("div");
-  entry.className = "log-entry";
-  entry.innerHTML = `<span class="log-time">${now}</span><span class="log-msg ${type}">${msg}</span>`;
-  logEl.appendChild(entry);
-  logEl.scrollTop = logEl.scrollHeight;
+function tickClock() {
+  const now = new Date();
+  document.getElementById("clock").textContent =
+    now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) +
+    "  " + now.toTimeString().slice(0,8);
+}
+setInterval(tickClock, 1000); tickClock();
+
+// ═══════════════════════════════════════════════════════════════════════
+// Load cameras from server
+// ═══════════════════════════════════════════════════════════════════════
+
+async function loadCameras() {
+  const r = await fetch("/api/cameras");
+  cameras = await r.json();
+  renderSidebar();
+  renderGrid();
 }
 
-// ── Status pill ───────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// Sidebar
+// ═══════════════════════════════════════════════════════════════════════
 
-function setStatus(label, cls) {
-  const pill = document.getElementById("statusPill");
-  const text = document.getElementById("statusText");
-  pill.className = "status-pill " + cls;
-  text.textContent = label;
+function renderSidebar() {
+  const list = document.getElementById("camList");
+  const empty = document.getElementById("sidebarEmpty");
+  document.getElementById("camCount").textContent = cameras.length;
+
+  // Remove old items (keep empty placeholder)
+  list.querySelectorAll(".cam-item").forEach(el => el.remove());
+
+  if (cameras.length === 0) {
+    empty.style.display = "flex";
+    return;
+  }
+  empty.style.display = "none";
+
+  cameras.forEach(cam => {
+    const div = document.createElement("div");
+    div.className = "cam-item";
+    div.id = `si-${cam.id}`;
+    div.innerHTML = `
+      <div class="cam-item-dot"></div>
+      <div class="cam-item-info">
+        <div class="cam-item-name">${esc(cam.name)}</div>
+        <div class="cam-item-id">${esc(cam.url.replace(/:[^@]+@/,":**@"))}</div>
+      </div>
+      <div class="cam-item-del" title="Remove" onclick="removeCamera('${cam.id}',event)">✕</div>
+    `;
+    div.addEventListener("click", () => scrollToCard(cam.id));
+    list.appendChild(div);
+  });
 }
 
-// ── WHEP Connect ─────────────────────────────────────────────────────────────
+function updateSidebarDot(id, state) {
+  const item = document.getElementById(`si-${id}`);
+  if (!item) return;
+  item.classList.remove("streaming","error");
+  if (state === "streaming") item.classList.add("streaming");
+  if (state === "error")     item.classList.add("error");
+}
 
-async function connect() {
-  if (pc) disconnect();
+// ═══════════════════════════════════════════════════════════════════════
+// Grid
+// ═══════════════════════════════════════════════════════════════════════
 
-  document.getElementById("connectBtn").disabled = true;
-  setStatus("CONNECTING…", "warn");
-  log("Initiating WHEP connection…", "info");
+function renderGrid() {
+  const grid  = document.getElementById("grid");
+  const empty = document.getElementById("gridEmpty");
 
-  const WHEP_URL = "/whep/camera";
+  grid.querySelectorAll(".cam-card").forEach(el => el.remove());
 
-  pc = new RTCPeerConnection({
+  if (cameras.length === 0) {
+    empty.style.display = "flex";
+    return;
+  }
+  empty.style.display = "none";
+
+  cameras.forEach(cam => {
+    grid.appendChild(makeCard(cam));
+  });
+}
+
+function makeCard(cam) {
+  const div = document.createElement("div");
+  div.className = "cam-card";
+  div.id = `card-${cam.id}`;
+  const maskedUrl = cam.url.replace(/:[^@]+@/,":**@");
+  div.innerHTML = `
+    <div class="card-header">
+      <div class="card-status-dot" id="cdot-${cam.id}"></div>
+      <div class="card-name">${esc(cam.name)}</div>
+      <div class="card-badge" id="cbadge-${cam.id}">IDLE</div>
+      <div class="card-ctrl">
+        <button class="card-btn connect" id="cbtn-${cam.id}" onclick="connect('${cam.id}')">▶ Connect</button>
+        <button class="card-btn stop" id="cstop-${cam.id}" style="display:none" onclick="disconnect('${cam.id}')">■ Stop</button>
+      </div>
+    </div>
+    <div class="card-video-wrap">
+      <video id="vid-${cam.id}" autoplay playsinline muted></video>
+      <div class="brackets">
+        <div class="brk tl"></div><div class="brk tr"></div>
+        <div class="brk bl"></div><div class="brk br"></div>
+      </div>
+      <div class="card-overlay" id="covr-${cam.id}">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        <div class="card-overlay-txt" id="covrtxt-${cam.id}">NOT CONNECTED<br>Press ▶ Connect</div>
+      </div>
+      <div class="live-tag" id="clive-${cam.id}"><div class="dot"></div>LIVE</div>
+      <div class="stream-src">${maskedUrl}</div>
+    </div>
+    <div class="card-footer">
+      <div class="stat">
+        <div class="stat-label">ICE</div>
+        <div class="stat-value" id="cice-${cam.id}">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Conn</div>
+        <div class="stat-value" id="cconn-${cam.id}">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Video</div>
+        <div class="stat-value" id="cvid-${cam.id}">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Audio</div>
+        <div class="stat-value" id="caud-${cam.id}">—</div>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+function scrollToCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  if (card) card.scrollIntoView({ behavior:"smooth", block:"nearest" });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// WHEP connect / disconnect
+// ═══════════════════════════════════════════════════════════════════════
+
+async function connect(id) {
+  if (peerConns[id]) disconnect(id);
+
+  setCardStatus(id, "connecting");
+  document.getElementById(`cbtn-${id}`).disabled = true;
+
+  const pc = new RTCPeerConnection({
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
   });
+  peerConns[id] = pc;
 
-  // Add receivers for video and audio
   pc.addTransceiver("video", { direction: "recvonly" });
   pc.addTransceiver("audio", { direction: "recvonly" });
 
-  // Attach tracks to video element
-  const video = document.getElementById("video");
   const ms = new MediaStream();
-  video.srcObject = ms;
+  document.getElementById(`vid-${id}`).srcObject = ms;
 
-  pc.ontrack = (e) => {
+  pc.ontrack = e => {
     ms.addTrack(e.track);
-    log(`Track received: ${e.track.kind}`, "ok");
-
-    if (e.track.kind === "video") {
-      document.getElementById("videoInfo").textContent = "H.264";
-      document.getElementById("videoInfo").className = "info-value ok";
-    }
-    if (e.track.kind === "audio") {
-      document.getElementById("audioInfo").textContent = "AAC / PCM";
-      document.getElementById("audioInfo").className = "info-value ok";
-    }
+    const kind = e.track.kind;
+    const el = document.getElementById(kind === "video" ? `cvid-${id}` : `caud-${id}`);
+    if (el) { el.textContent = kind === "video" ? "H.264" : "AAC"; el.className = "stat-value ok"; }
   };
 
   pc.oniceconnectionstatechange = () => {
     const s = pc.iceConnectionState;
-    const el = document.getElementById("iceState");
-    el.textContent = s.toUpperCase();
-    el.className = "info-value " + (s === "connected" || s === "completed" ? "ok" : s === "failed" ? "error" : "warn");
-    log(`ICE: ${s}`, s === "connected" || s === "completed" ? "ok" : "info");
+    const el = document.getElementById(`cice-${id}`);
+    if (el) { el.textContent = s.toUpperCase(); el.className = "stat-value " + stateClass(s); }
   };
 
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
-    const el = document.getElementById("connState");
-    el.textContent = s.toUpperCase();
-    el.className = "info-value " + (s === "connected" ? "ok" : s === "failed" || s === "disconnected" ? "error" : "warn");
-    log(`Connection: ${s}`, s === "connected" ? "ok" : "info");
+    const el = document.getElementById(`cconn-${id}`);
+    if (el) { el.textContent = s.toUpperCase(); el.className = "stat-value " + stateClass(s); }
 
     if (s === "connected") {
-      setStatus("LIVE", "ok");
-      document.getElementById("overlay").classList.add("hidden");
-      document.getElementById("liveBadge").classList.add("visible");
-      document.getElementById("streamLabel").textContent = "rtsp://192.168.1.10:8554/profile0";
-      document.getElementById("disconnectBtn").classList.add("visible");
+      setCardStatus(id, "live");
+      updateSidebarDot(id, "streaming");
+      document.getElementById(`cbtn-${id}`).disabled  = false;
+      document.getElementById(`cbtn-${id}`).style.display = "none";
+      document.getElementById(`cstop-${id}`).style.display = "";
     }
     if (s === "failed" || s === "disconnected") {
-      setStatus("DISCONNECTED", "error");
-      document.getElementById("overlay").classList.remove("hidden");
-      document.getElementById("overlayText").textContent = "CONNECTION LOST\nRetrying…";
-      document.getElementById("liveBadge").classList.remove("visible");
-      // Auto-retry after 3s
-      setTimeout(() => { if (s === "failed") connect(); }, 3000);
+      setCardStatus(id, "error");
+      updateSidebarDot(id, "error");
+      document.getElementById(`cbtn-${id}`).disabled  = false;
+      document.getElementById(`cbtn-${id}`).style.display = "";
+      document.getElementById(`cstop-${id}`).style.display = "none";
+      // auto-retry
+      if (s === "failed") setTimeout(() => connect(id), 4000);
     }
   };
-
-  // ── SDP Offer / Answer (WHEP) ─────────────────────────────────────────────
 
   try {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    log("SDP offer created, posting to MediaMTX…", "info");
 
-    // Wait for ICE gathering to complete
-    await new Promise((resolve) => {
-      if (pc.iceGatheringState === "complete") return resolve();
-      pc.onicegatheringstatechange = () => {
-        if (pc.iceGatheringState === "complete") resolve();
-      };
-      setTimeout(resolve, 3000); // fallback
+    // wait for ICE gathering
+    await new Promise(res => {
+      if (pc.iceGatheringState === "complete") return res();
+      pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === "complete") res(); };
+      setTimeout(res, 3000);
     });
 
-    const resp = await fetch(WHEP_URL, {
+    const resp = await fetch(`/whep/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/sdp" },
-      body: pc.localDescription.sdp,
+      body: pc.localDescription.sdp
     });
 
-    if (!resp.ok) {
-      const body = await resp.text();
-      throw new Error(`WHEP ${resp.status}: ${body}`);
-    }
-
-    const answerSdp = await resp.text();
-    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-    log("SDP answer received from MediaMTX", "ok");
+    if (!resp.ok) throw new Error(`WHEP ${resp.status}: ${await resp.text()}`);
+    const sdp = await resp.text();
+    await pc.setRemoteDescription({ type: "answer", sdp });
 
   } catch (err) {
-    log("Error: " + err.message, "error");
-    setStatus("ERROR", "error");
-    document.getElementById("overlayText").textContent = "CONNECTION FAILED\n" + err.message;
-    document.getElementById("connectBtn").disabled = false;
-    if (pc) { pc.close(); pc = null; }
+    setCardStatus(id, "error", err.message);
+    updateSidebarDot(id, "error");
+    pc.close(); delete peerConns[id];
+    document.getElementById(`cbtn-${id}`).disabled = false;
   }
 }
 
-// ── Disconnect ────────────────────────────────────────────────────────────────
-
-function disconnect() {
-  if (pc) { pc.close(); pc = null; }
-  document.getElementById("video").srcObject = null;
-  document.getElementById("overlay").classList.remove("hidden");
-  document.getElementById("overlayText").textContent = "STREAM INACTIVE\nPress CONNECT to start";
-  document.getElementById("liveBadge").classList.remove("visible");
-  document.getElementById("streamLabel").textContent = "";
-  document.getElementById("connectBtn").disabled = false;
-  document.getElementById("disconnectBtn").classList.remove("visible");
-  document.getElementById("iceState").textContent = "—";
-  document.getElementById("connState").textContent = "—";
-  document.getElementById("videoInfo").textContent = "—";
-  document.getElementById("audioInfo").textContent = "—";
-  setStatus("IDLE", "");
-  log("Disconnected", "warn");
+function disconnect(id) {
+  if (peerConns[id]) { peerConns[id].close(); delete peerConns[id]; }
+  const vid = document.getElementById(`vid-${id}`);
+  if (vid) vid.srcObject = null;
+  setCardStatus(id, "idle");
+  updateSidebarDot(id, "");
+  const btnC = document.getElementById(`cbtn-${id}`);
+  const btnS = document.getElementById(`cstop-${id}`);
+  if (btnC) { btnC.disabled = false; btnC.style.display = ""; }
+  if (btnS)   btnS.style.display = "none";
+  ["cice","cconn","cvid","caud"].forEach(p => {
+    const el = document.getElementById(`${p}-${id}`);
+    if (el) { el.textContent = "—"; el.className = "stat-value"; }
+  });
 }
 
-// ── Poll stream health ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// Card visual state helpers
+// ═══════════════════════════════════════════════════════════════════════
+
+function setCardStatus(id, state, msg) {
+  const dot   = document.getElementById(`cdot-${id}`);
+  const badge = document.getElementById(`cbadge-${id}`);
+  const ovr   = document.getElementById(`covr-${id}`);
+  const otxt  = document.getElementById(`covrtxt-${id}`);
+  const live  = document.getElementById(`clive-${id}`);
+  if (!dot) return;
+
+  dot.style.background = { live:"var(--green)", connecting:"var(--amber)", error:"var(--red)", idle:"var(--muted)" }[state] || "var(--muted)";
+  if (state === "live") {
+    dot.style.animation = "blink 2s infinite";
+    badge.textContent = "LIVE"; badge.className = "card-badge live";
+    ovr.classList.add("hidden");
+    live.classList.add("on");
+  } else {
+    dot.style.animation = "none";
+    live.classList.remove("on");
+    ovr.classList.remove("hidden");
+    if (state === "connecting") {
+      badge.textContent = "CONNECTING…"; badge.className = "card-badge";
+      otxt.textContent = "CONNECTING…";
+    } else if (state === "error") {
+      badge.textContent = "ERROR"; badge.className = "card-badge";
+      otxt.textContent = "CONNECTION FAILED\n" + (msg || "Retrying…");
+    } else {
+      badge.textContent = "IDLE"; badge.className = "card-badge";
+      otxt.textContent = "NOT CONNECTED\nPress ▶ Connect";
+    }
+  }
+}
+
+function stateClass(s) {
+  if (["connected","completed"].includes(s)) return "ok";
+  if (["failed","disconnected","closed"].includes(s)) return "err";
+  return "warn";
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Add / Remove camera
+// ═══════════════════════════════════════════════════════════════════════
+
+function openModal() {
+  document.getElementById("inName").value = "";
+  document.getElementById("inUrl").value  = "";
+  document.getElementById("modalErr").className = "modal-err";
+  document.getElementById("modalBg").classList.add("open");
+  setTimeout(() => document.getElementById("inName").focus(), 150);
+}
+function closeModal() {
+  document.getElementById("modalBg").classList.remove("open");
+}
+
+document.getElementById("modalBg").addEventListener("click", e => {
+  if (e.target === document.getElementById("modalBg")) closeModal();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+async function saveCamera() {
+  const name = document.getElementById("inName").value.trim();
+  const url  = document.getElementById("inUrl").value.trim();
+  const err  = document.getElementById("modalErr");
+
+  if (!name) { showErr("Camera name is required"); return; }
+  if (!url)  { showErr("RTSP URL is required"); return; }
+  if (!url.startsWith("rtsp://")) { showErr("URL must start with rtsp://"); return; }
+
+  document.getElementById("saveBtn").disabled = true;
+  err.className = "modal-err";
+
+  try {
+    const r = await fetch("/api/cameras", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, url })
+    });
+    if (!r.ok) throw new Error((await r.json()).error || "Server error");
+    const cam = await r.json();
+    cameras.push(cam);
+    renderSidebar();
+
+    // Add card to grid
+    const grid = document.getElementById("grid");
+    document.getElementById("gridEmpty").style.display = "none";
+    grid.appendChild(makeCard(cam));
+
+    closeModal();
+    // Small delay to let mediamtx restart, then auto-connect
+    setTimeout(() => connect(cam.id), 2500);
+  } catch (e) {
+    showErr(e.message);
+  } finally {
+    document.getElementById("saveBtn").disabled = false;
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById("modalErr");
+  el.textContent = msg;
+  el.className = "modal-err show";
+}
+
+async function removeCamera(id, e) {
+  e && e.stopPropagation();
+  if (!confirm("Remove this camera?")) return;
+  disconnect(id);
+  await fetch(`/api/cameras/${id}`, { method: "DELETE" });
+  cameras = cameras.filter(c => c.id !== id);
+  const card = document.getElementById(`card-${id}`);
+  if (card) card.remove();
+  const si = document.getElementById(`si-${id}`);
+  if (si) si.remove();
+  document.getElementById("camCount").textContent = cameras.length;
+  if (cameras.length === 0) {
+    document.getElementById("gridEmpty").style.display = "flex";
+    document.getElementById("sidebarEmpty").style.display = "flex";
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// System status polling
+// ═══════════════════════════════════════════════════════════════════════
 
 async function pollStatus() {
   try {
     const r = await fetch("/api/status");
     const d = await r.json();
-    if (d.ok && d.stream) {
-      const ready = d.stream.ready;
-      if (!pc && ready) log("Camera stream is ready on MediaMTX", "ok");
+    const pill = document.getElementById("sysStatus");
+    const txt  = document.getElementById("sysStatusTxt");
+    if (d.ok) {
+      pill.className = "pill live";
+      const live = (d.paths || []).filter(p => p.ready).length;
+      txt.textContent = `${live}/${cameras.length} LIVE`;
+    } else {
+      pill.className = "pill";
+      txt.textContent = "MTX STARTING…";
     }
-  } catch (_) { /* ignore during startup */ }
+  } catch { /* ignore */ }
 }
 
-setInterval(pollStatus, 5000);
-pollStatus();
+setInterval(pollStatus, 4000);
 
-log("WHEP viewer ready", "ok");
+// ═══════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Boot
+// ═══════════════════════════════════════════════════════════════════════
+
+loadCameras().then(() => {
+  // Auto-connect all saved cameras after mediamtx has time to start
+  setTimeout(() => cameras.forEach(cam => connect(cam.id)), 2000);
+});
+pollStatus();
 </script>
 </body>
 </html>

@@ -1,10 +1,7 @@
 /**
  * MediaMTX Multi-Camera WHEP Server
  * -----------------------------------
- * - Cameras persisted in cameras.json
- * - Dynamically rewrites mediamtx.yml on add/remove
- * - Hot-restarts MediaMTX when config changes
- * - Proxies WHEP signaling to MediaMTX
+ * Cameras saved to cameras.json · hot-restarts MediaMTX on change
  */
 
 const express    = require("express");
@@ -14,7 +11,7 @@ const path       = require("path");
 const fs         = require("fs");
 
 const app  = express();
-const PORT = 8050;
+const PORT = 3000;
 const MTX_WEBRTC = "http://localhost:8889";
 const MTX_API    = "http://localhost:9997";
 
@@ -39,8 +36,7 @@ function saveCameras(cams) {
 
 function writeMtxConfig(cameras) {
   const pathsBlock = cameras.map(cam => {
-    const id = cam.id;
-    return `  ${id}:\n    source: ${cam.url}\n    sourceOnDemand: no\n    sourceProtocol: tcp\n    readUser:\n    readPass:`;
+    return `  ${cam.id}:\n    source: ${cam.url}\n    sourceOnDemand: no\n    sourceProtocol: tcp\n    readUser:\n    readPass:`;
   }).join("\n\n");
 
   const yml = `logLevel: info
@@ -66,6 +62,7 @@ ${pathsBlock || "  ~.*:\n    source: publisher"}
 // ── MediaMTX process management ───────────────────────────────────────────────
 
 let mtxProc = null;
+let mtxRestartTimer = null;
 
 function startMtx() {
   if (!fs.existsSync(MTX_BIN)) {
@@ -73,26 +70,24 @@ function startMtx() {
     process.exit(1);
   }
 
-  if (mtxProc) {
-    mtxProc.removeAllListeners();
-    mtxProc.kill("SIGTERM");
-    mtxProc = null;
-  }
-
-  mtxProc = spawn(MTX_BIN, [MTX_YML], { stdio: "inherit" });
-
-  mtxProc.on("error", err => console.error("❌  mediamtx error:", err.message));
-  mtxProc.on("exit",  code => {
-    console.log(`ℹ️   mediamtx exited (${code})`);
-    mtxProc = null;
-  });
-
-  console.log("🚀 MediaMTX (re)started");
+  // Debounce rapid restarts
+  if (mtxRestartTimer) { clearTimeout(mtxRestartTimer); }
+  mtxRestartTimer = setTimeout(() => {
+    if (mtxProc) {
+      mtxProc.removeAllListeners();
+      mtxProc.kill("SIGTERM");
+      mtxProc = null;
+    }
+    mtxProc = spawn(MTX_BIN, [MTX_YML], { stdio: "inherit" });
+    mtxProc.on("error", err => console.error("❌  mediamtx error:", err.message));
+    mtxProc.on("exit",  code => { console.log(`ℹ️   mediamtx exited (${code})`); mtxProc = null; });
+    console.log("🚀 MediaMTX (re)started");
+  }, 300);
 }
 
 // Init
-const cameras = loadCameras();
-writeMtxConfig(cameras);
+const initCams = loadCameras();
+writeMtxConfig(initCams);
 startMtx();
 
 process.on("exit",   () => mtxProc && mtxProc.kill());
@@ -101,27 +96,21 @@ process.on("SIGTERM",() => { mtxProc && mtxProc.kill(); process.exit(); });
 
 // ── REST API ──────────────────────────────────────────────────────────────────
 
-// GET /api/cameras  — list all saved cameras
-app.get("/api/cameras", (req, res) => {
-  res.json(loadCameras());
-});
+app.get("/api/cameras", (_req, res) => res.json(loadCameras()));
 
-// POST /api/cameras  — add a camera  { name, url }
 app.post("/api/cameras", (req, res) => {
   const { name, url } = req.body;
   if (!name || !url) return res.status(400).json({ error: "name and url required" });
 
   const cams = loadCameras();
+  const id   = name.toLowerCase().replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").replace(/^_|_$/g,"")
+             + "_" + Date.now().toString(36);
 
-  // Build a safe path ID from name
-  const id = name.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "") + "_" + Date.now().toString(36);
-
-  const cam = { id, name, url, addedAt: new Date().toISOString() };
+  const cam  = { id, name, url, addedAt: new Date().toISOString() };
   cams.push(cam);
   saveCameras(cams);
   writeMtxConfig(cams);
-  startMtx();   // hot-restart with new config
-
+  startMtx();
   res.json(cam);
 });
 
@@ -131,16 +120,14 @@ app.delete("/api/cameras/:id", (req, res) => {
   const before = cams.length;
   cams = cams.filter(c => c.id !== req.params.id);
   if (cams.length === before) return res.status(404).json({ error: "not found" });
-
   saveCameras(cams);
   writeMtxConfig(cams);
   startMtx();
-
   res.json({ ok: true });
 });
 
-// GET /api/status  — MediaMTX path status for all cameras
-app.get("/api/status", async (req, res) => {
+// GET /api/status
+app.get("/api/status", async (_req, res) => {
   try {
     const r = await fetch(`${MTX_API}/v3/paths/list`);
     if (!r.ok) throw new Error(`API ${r.status}`);
@@ -151,31 +138,28 @@ app.get("/api/status", async (req, res) => {
   }
 });
 
-// ── Static frontend ───────────────────────────────────────────────────────────
-
+// ── Static ────────────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, "public")));
 
-// ── WHEP proxy  /whep/:camId  →  http://localhost:8889/:camId/whep ────────────
-
+// ── WHEP proxy ────────────────────────────────────────────────────────────────
 app.use("/whep", createProxyMiddleware({
   target: MTX_WEBRTC,
   changeOrigin: true,
-  pathRewrite: reqPath => {
-    const camId = reqPath.replace(/^\//, "").split("/")[0];
-    return `/${camId}/whep`;
+  pathRewrite: p => {
+    const id = p.replace(/^\//,"").split("/")[0];
+    return `/${id}/whep`;
   },
   on: {
     proxyReq: (_, req) => console.log(`🔀 WHEP ${req.method} ${req.path}`),
     error: (err, _req, res) => {
-      console.error("Proxy error:", err.message);
+      console.error("Proxy:", err.message);
       res.status(502).json({ error: "MediaMTX not ready, retry shortly" });
     }
   }
 }));
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-
 app.listen(PORT, () => {
   console.log(`\n✅  Server → http://localhost:${PORT}`);
-  console.log(`    Cameras  : ${cameras.length} loaded from cameras.json`);
+  console.log(`    Cameras loaded: ${initCams.length}`);
 });
