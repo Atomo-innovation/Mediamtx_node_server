@@ -1,34 +1,35 @@
-###############################################
-# MediaMTX Configuration — RTSP → WHEP Demo
-###############################################
-
 logLevel: info
 
-# RTSP server (internal, used to pull from camera)
 rtsp: yes
 rtspAddress: :8554
 
-# Disable unused protocols
 rtmp: no
 hls: no
 
-# WebRTC / WHEP — browser connects here
 webrtc: yes
 webrtcAddress: :8889
 
-# REST API — used by Node.js /api/status
 api: yes
 apiAddress: :9997
 
-###############################################
-# Paths
-###############################################
 paths:
-  camera:
+  front_mpktp069:
     source: rtsp://admin:admin123456@192.168.1.10:8554/profile0
     sourceOnDemand: no
     sourceProtocol: tcp
+    readUser:
+    readPass:
 
-    # No auth required to read (lock down in production)
+  back_mpktq538:
+    source: rtsp://admin12345:admin12345@192.168.1.102/stream1
+    sourceOnDemand: no
+    sourceProtocol: tcp
+    readUser:
+    readPass:
+
+  phone_mpku8c6p:
+    source: rtsp://192.168.1.24:8080/h264.sdp
+    sourceOnDemand: no
+    sourceProtocol: tcp
     readUser:
     readPass:

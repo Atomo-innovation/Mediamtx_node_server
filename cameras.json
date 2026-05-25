@@ -1,0 +1,20 @@
+[
+  {
+    "id": "front_mpktp069",
+    "name": "front",
+    "url": "rtsp://admin:admin123456@192.168.1.10:8554/profile0",
+    "addedAt": "2026-05-25T06:26:07.522Z"
+  },
+  {
+    "id": "back_mpktq538",
+    "name": "back",
+    "url": "rtsp://admin12345:admin12345@192.168.1.102/stream1",
+    "addedAt": "2026-05-25T06:27:00.548Z"
+  },
+  {
+    "id": "phone_mpku8c6p",
+    "name": "phone",
+    "url": "rtsp://192.168.1.24:8080/h264.sdp",
+    "addedAt": "2026-05-25T06:41:09.553Z"
+  }
+]
