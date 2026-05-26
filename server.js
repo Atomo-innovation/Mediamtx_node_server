@@ -2,16 +2,19 @@
  * MediaMTX Multi-Camera WHEP Server
  * -----------------------------------
  * Cameras saved to cameras.json · hot-restarts MediaMTX on change
+ * Face-detection events received from face_detector.py · broadcast via WebSocket
  */
 
 const express    = require("express");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const { spawn }  = require("child_process");
+const { WebSocketServer } = require("ws");
+const http       = require("http");
 const path       = require("path");
 const fs         = require("fs");
 
-const app  = express();
-const PORT = 3000;
+const app    = express();
+const PORT   = 3000;
 const MTX_WEBRTC = "http://localhost:8889";
 const MTX_API    = "http://localhost:9997";
 
@@ -19,7 +22,11 @@ const MTX_BIN    = path.join(__dirname, "mediamtx");
 const MTX_YML    = path.join(__dirname, "mediamtx.yml");
 const CAMERAS_DB = path.join(__dirname, "cameras.json");
 
-app.use(express.json());
+// Keep last N face events in memory so the UI can fetch history on load
+const MAX_EVENTS = 200;
+const faceEvents = [];
+
+app.use(express.json({ limit: "4mb" }));   // face crops are base64 JPEG
 
 // ── Camera persistence ────────────────────────────────────────────────────────
 
@@ -70,7 +77,6 @@ function startMtx() {
     process.exit(1);
   }
 
-  // Debounce rapid restarts
   if (mtxRestartTimer) { clearTimeout(mtxRestartTimer); }
   mtxRestartTimer = setTimeout(() => {
     if (mtxProc) {
@@ -114,7 +120,6 @@ app.post("/api/cameras", (req, res) => {
   res.json(cam);
 });
 
-// DELETE /api/cameras/:id
 app.delete("/api/cameras/:id", (req, res) => {
   let cams = loadCameras();
   const before = cams.length;
@@ -126,7 +131,6 @@ app.delete("/api/cameras/:id", (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /api/status
 app.get("/api/status", async (_req, res) => {
   try {
     const r = await fetch(`${MTX_API}/v3/paths/list`);
@@ -136,6 +140,38 @@ app.get("/api/status", async (_req, res) => {
   } catch (e) {
     res.json({ ok: false, error: e.message, paths: [] });
   }
+});
+
+// ── Face events API ───────────────────────────────────────────────────────────
+
+// GET /api/face-events  → last MAX_EVENTS events (newest first)
+app.get("/api/face-events", (_req, res) => {
+  res.json([...faceEvents].reverse());
+});
+
+// POST /api/face-events  → called by face_detector.py
+app.post("/api/face-events", (req, res) => {
+  const ev = req.body;
+  if (!ev || !ev.camId) return res.status(400).json({ error: "camId required" });
+
+  ev.serverTs = Date.now();
+  faceEvents.push(ev);
+  if (faceEvents.length > MAX_EVENTS) faceEvents.shift();
+
+  // Broadcast to all connected WebSocket clients
+  const msg = JSON.stringify({ type: "face_event", event: ev });
+  wss.clients.forEach(client => {
+    if (client.readyState === 1 /* OPEN */) client.send(msg);
+  });
+
+  res.json({ ok: true });
+});
+
+// DELETE /api/face-events  → clear log
+app.delete("/api/face-events", (_req, res) => {
+  faceEvents.length = 0;
+  wss.clients.forEach(c => { if (c.readyState === 1) c.send(JSON.stringify({ type: "face_clear" })); });
+  res.json({ ok: true });
 });
 
 // ── Static ────────────────────────────────────────────────────────────────────
@@ -158,8 +194,19 @@ app.use("/whep", createProxyMiddleware({
   }
 }));
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+// ── HTTP server + WebSocket ───────────────────────────────────────────────────
+const server = http.createServer(app);
+const wss    = new WebSocketServer({ server, path: "/ws" });
+
+wss.on("connection", ws => {
+  console.log("🔌 WS client connected");
+  // Send history on connect
+  ws.send(JSON.stringify({ type: "face_history", events: [...faceEvents].reverse() }));
+  ws.on("close", () => console.log("🔌 WS client disconnected"));
+});
+
+server.listen(PORT, () => {
   console.log(`\n✅  Server → http://localhost:${PORT}`);
   console.log(`    Cameras loaded: ${initCams.length}`);
+  console.log(`    WebSocket: ws://localhost:${PORT}/ws`);
 });

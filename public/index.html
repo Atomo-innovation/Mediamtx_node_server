@@ -531,6 +531,110 @@ video.cvid{width:100%;height:100%;object-fit:cover;display:block}
 .toast.err{border-color:var(--red);color:var(--red);background:var(--red-dim)}
 @keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 @keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(16px)}}
+
+/* ════════════════════════════════════════════════════
+   FACE DETECTION PANEL
+════════════════════════════════════════════════════ */
+.face-panel{
+  width:300px;flex-shrink:0;
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:background .3s;
+}
+.face-panel-hd{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  flex-shrink:0;
+}
+.face-panel-title{
+  display:flex;align-items:center;gap:8px;
+}
+.face-panel-title svg{width:14px;height:14px;fill:var(--accent);flex-shrink:0}
+.face-panel-label{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);letter-spacing:.18em;text-transform:uppercase;
+}
+.face-count-badge{
+  font-family:'DM Mono',monospace;font-size:11px;
+  padding:1px 8px;border:1px solid var(--border2);
+  color:var(--accent);background:var(--accent-dim);
+  margin-left:auto;
+}
+.face-panel-actions{display:flex;gap:4px;flex-shrink:0}
+.face-act-btn{
+  width:26px;height:26px;border:1px solid var(--border2);
+  background:transparent;color:var(--text3);
+  display:grid;place-items:center;font-size:11px;
+  border-radius:2px;transition:all .15s;cursor:pointer;
+}
+.face-act-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+
+.face-ws-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--text3);flex-shrink:0;transition:background .3s;
+}
+.face-ws-dot.connected{background:var(--green);animation:pulse 2s infinite}
+.face-ws-dot.error{background:var(--red)}
+
+.face-log{flex:1;overflow-y:auto;padding:6px 0}
+
+.face-empty{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  padding:24px;text-align:center;
+}
+.face-empty svg{width:40px;height:40px;fill:var(--text3);opacity:.3}
+.face-empty p{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);line-height:1.8;letter-spacing:.06em;
+}
+
+.face-event{
+  display:flex;gap:10px;
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  transition:background .15s;animation:feIn .3s ease both;
+  cursor:default;
+}
+.face-event:hover{background:var(--surface2)}
+@keyframes feIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+
+.face-thumb{
+  width:52px;height:52px;flex-shrink:0;
+  border:1px solid var(--border2);
+  background:var(--bg2);
+  object-fit:cover;border-radius:2px;
+  transition:border-color .2s;
+}
+.face-event:hover .face-thumb{border-color:var(--accent)}
+.face-thumb-placeholder{
+  width:52px;height:52px;flex-shrink:0;
+  border:1px dashed var(--border2);
+  background:var(--bg2);border-radius:2px;
+  display:grid;place-items:center;
+}
+.face-thumb-placeholder svg{width:22px;height:22px;fill:var(--text3);opacity:.35}
+
+.face-meta{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.face-cam-name{
+  font-size:12px;font-weight:700;letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.face-time{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);letter-spacing:.04em;
+}
+.face-score{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--green);letter-spacing:.06em;
+  background:var(--green-dim);border:1px solid rgba(45,223,143,.25);
+  padding:1px 6px;border-radius:2px;width:fit-content;
+}
+
+/* live flash */
+@keyframes flashBorder{0%,100%{border-color:var(--border)}50%{border-color:var(--accent)}}
+.face-panel.flash{animation:flashBorder .4s ease}
+
 </style>
 </head>
 <body>
@@ -595,6 +699,27 @@ video.cvid{width:100%;height:100%;object-fit:cover;display:block}
     </div>
     <div class="cam-grid" id="camGrid"></div>
   </div>
+
+  <!-- Face Detection Panel -->
+  <aside class="face-panel" id="facePanel">
+    <div class="face-panel-hd">
+      <div class="face-panel-title">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span class="face-panel-label">Face Events</span>
+        <div class="face-ws-dot" id="faceWsDot" title="WebSocket status"></div>
+      </div>
+      <span class="face-count-badge" id="faceCount">0</span>
+      <div class="face-panel-actions">
+        <button class="face-act-btn" title="Clear log" onclick="clearFaceLog()">✕</button>
+      </div>
+    </div>
+    <div class="face-log" id="faceLog">
+      <div class="face-empty" id="faceEmpty">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <p>No faces detected yet.<br>Start face_detector.py<br>to begin.</p>
+      </div>
+    </div>
+  </aside>
 
 </div>
 
@@ -1192,6 +1317,110 @@ loadCameras().then(()=>{
   }), 2200);
 });
 pollStatus();
+
+// ════════════════════════════════════════════════════════════════════════
+// FACE DETECTION EVENTS
+// ════════════════════════════════════════════════════════════════════════
+
+let faceEventCount = 0;
+const MAX_FACE_ITEMS = 100;
+let faceWs = null;
+
+function faceTimestamp(ms) {
+  const d = new Date(ms);
+  return d.toLocaleTimeString('en-GB', { hour12: false }) +
+    '.' + String(d.getMilliseconds()).padStart(3,'0');
+}
+
+function makeFaceEventEl(ev) {
+  const el = document.createElement('div');
+  el.className = 'face-event';
+  const ts = faceTimestamp(ev.ts || ev.serverTs || Date.now());
+  const scoreVal = ev.score ? (ev.score * 100).toFixed(1) + '%' : '—';
+  const thumb = ev.crop
+    ? `<img class="face-thumb" src="data:image/jpeg;base64,${ev.crop}" alt="face"/>`
+    : `<div class="face-thumb-placeholder"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>`;
+  el.innerHTML = `
+    ${thumb}
+    <div class="face-meta">
+      <div class="face-cam-name">${esc(ev.camName || ev.camId || '—')}</div>
+      <div class="face-time">${ts}</div>
+      <div class="face-score">&#9632; ${scoreVal}</div>
+    </div>`;
+  return el;
+}
+
+function addFaceEvent(ev) {
+  const log   = document.getElementById('faceLog');
+  const empty = document.getElementById('faceEmpty');
+
+  if (empty) empty.style.display = 'none';
+
+  const el = makeFaceEventEl(ev);
+  // Prepend (newest on top)
+  const firstItem = log.querySelector('.face-event');
+  if (firstItem) log.insertBefore(el, firstItem);
+  else           log.appendChild(el);
+
+  // Prune old items
+  const items = log.querySelectorAll('.face-event');
+  if (items.length > MAX_FACE_ITEMS) items[items.length - 1].remove();
+
+  faceEventCount++;
+  document.getElementById('faceCount').textContent = faceEventCount;
+
+  // Flash panel border
+  const panel = document.getElementById('facePanel');
+  panel.classList.remove('flash');
+  void panel.offsetWidth;
+  panel.classList.add('flash');
+}
+
+function clearFaceLog() {
+  fetch('/api/face-events', { method: 'DELETE' });
+  document.getElementById('faceLog').querySelectorAll('.face-event').forEach(e => e.remove());
+  faceEventCount = 0;
+  document.getElementById('faceCount').textContent = '0';
+  document.getElementById('faceEmpty').style.display = '';
+}
+
+function setWsDot(state) {
+  const dot = document.getElementById('faceWsDot');
+  dot.className = 'face-ws-dot' + (state === 'connected' ? ' connected' : state === 'error' ? ' error' : '');
+}
+
+function connectFaceWs() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  faceWs = new WebSocket(`${proto}://${location.host}/ws`);
+
+  faceWs.onopen = () => setWsDot('connected');
+  faceWs.onclose = () => {
+    setWsDot('');
+    setTimeout(connectFaceWs, 3000);
+  };
+  faceWs.onerror = () => setWsDot('error');
+
+  faceWs.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'face_event') {
+        addFaceEvent(msg.event);
+      } else if (msg.type === 'face_history') {
+        // Populate history (oldest first so prepend order is correct)
+        const evs = (msg.events || []).slice().reverse();
+        evs.forEach(addFaceEvent);
+      } else if (msg.type === 'face_clear') {
+        document.getElementById('faceLog').querySelectorAll('.face-event').forEach(e => e.remove());
+        faceEventCount = 0;
+        document.getElementById('faceCount').textContent = '0';
+        document.getElementById('faceEmpty').style.display = '';
+      }
+    } catch {}
+  };
+}
+
+connectFaceWs();
+
 </script>
 </body>
 </html>
