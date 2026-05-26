@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Face Clusters — Atomo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+/* ── DESIGN TOKENS (matches index.html) ── */
+:root,[data-theme="dark"]{
+  --bg:#0c0f14;--bg2:#111720;--surface:#161d28;--surface2:#1c2535;
+  --border:#222e40;--border2:#2a3a52;
+  --accent:#00d2c8;--accent-dim:rgba(0,210,200,.12);--accent-glow:rgba(0,210,200,.25);
+  --red:#ff4d6a;--red-dim:rgba(255,77,106,.12);
+  --green:#2ddf8f;--green-dim:rgba(45,223,143,.1);
+  --amber:#ffb940;--amber-dim:rgba(255,185,64,.1);
+  --purple:#a78bfa;--purple-dim:rgba(167,139,250,.12);
+  --text:#dce8f5;--text2:#8499b4;--text3:#445870;
+  --shadow:rgba(0,0,0,.45);--card-shadow:0 4px 32px rgba(0,0,0,.4);
+  --scheme:dark;
+}
+[data-theme="light"]{
+  --bg:#f0ebe2;--bg2:#e8e1d6;--surface:#faf7f2;--surface2:#f0ebe2;
+  --border:#d8d0c4;--border2:#c8bfb2;
+  --accent:#0077cc;--accent-dim:rgba(0,119,204,.1);--accent-glow:rgba(0,119,204,.2);
+  --red:#d93b54;--red-dim:rgba(217,59,84,.1);
+  --green:#1a9e5f;--green-dim:rgba(26,158,95,.1);
+  --amber:#c07a00;--amber-dim:rgba(192,122,0,.1);
+  --purple:#7c3aed;--purple-dim:rgba(124,58,237,.1);
+  --text:#1a2332;--text2:#5a6e84;--text3:#9aabbf;
+  --shadow:rgba(0,0,0,.12);--card-shadow:0 4px 24px rgba(0,0,0,.1);
+  --scheme:light;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:var(--scheme)}
+body{
+  font-family:'Syne',sans-serif;
+  background:var(--bg);color:var(--text);
+  height:100vh;display:flex;flex-direction:column;
+  overflow:hidden;transition:background .3s,color .3s;
+}
+button{font-family:'Syne',sans-serif;cursor:pointer}
+input{font-family:'DM Mono',monospace}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── TOP BAR ── */
+.topbar{
+  height:56px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);
+  position:relative;z-index:50;box-shadow:0 2px 16px var(--shadow);
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{position:relative;width:36px;height:36px;display:grid;place-items:center;flex-shrink:0}
+.brand-mark svg{width:36px;height:36px}
+.brand-mark .bm-ring{fill:none;stroke:var(--accent);stroke-width:1.5;animation:spin 12s linear infinite;transform-origin:center}
+.brand-mark .bm-dot{fill:var(--accent)}
+.brand-mark .bm-inner{fill:none;stroke:var(--border2);stroke-width:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.brand-name{font-size:16px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text);line-height:1}
+.brand-tagline{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.12em;margin-top:3px}
+
+.nav-tabs{display:flex;gap:2px}
+.nav-tab{
+  padding:6px 18px;
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--border2);color:var(--text3);background:transparent;
+  text-decoration:none;display:flex;align-items:center;gap:6px;
+  transition:all .15s;border-radius:2px;
+}
+.nav-tab:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.nav-tab.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+.topbar-right{display:flex;align-items:center;gap:10px}
+.clock{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:.06em;padding:0 6px}
+.theme-btn{
+  width:34px;height:34px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text2);
+  display:grid;place-items:center;font-size:15px;
+  transition:all .2s;border-radius:4px;
+}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* ── LAYOUT ── */
+.shell{display:flex;flex:1;overflow:hidden}
+
+/* ── LEFT PANEL: known persons ── */
+.persons-panel{
+  width:220px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-hd{
+  padding:14px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.panel-hd-label{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.18em;text-transform:uppercase;
+}
+.panel-count{
+  font-family:'DM Mono',monospace;font-size:11px;padding:1px 8px;
+  border:1px solid var(--border2);color:var(--accent);background:var(--accent-dim);
+}
+.persons-list{flex:1;overflow-y:auto;padding:6px 0}
+.person-item{
+  display:flex;align-items:center;gap:10px;padding:8px 14px;
+  border-left:2px solid transparent;cursor:pointer;transition:all .15s;
+}
+.person-item:hover{background:var(--surface2)}
+.person-item.active{background:var(--accent-dim);border-left-color:var(--accent)}
+.person-avatar{
+  width:48px;height:48px;border-radius:2px;border:1px solid var(--border2);
+  background:var(--bg2);object-fit:cover;flex-shrink:0;
+}
+.person-avatar-ph{
+  width:34px;height:34px;border-radius:2px;border:1px dashed var(--border2);
+  background:var(--bg2);display:grid;place-items:center;flex-shrink:0;
+}
+.person-avatar-ph svg{width:16px;height:16px;fill:var(--text3);opacity:.4}
+.person-info{flex:1;min-width:0}
+.person-name{font-size:12px;font-weight:700;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person-count{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-top:2px}
+.person-del{
+  width:20px;height:20px;border:1px solid var(--border2);background:transparent;
+  font-size:10px;color:var(--text3);display:grid;place-items:center;border-radius:2px;
+  opacity:0;transition:all .15s;flex-shrink:0;
+}
+.person-item:hover .person-del{opacity:1}
+.person-del:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.persons-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:24px;text-align:center;
+}
+.persons-empty svg{width:36px;height:36px;fill:var(--text3);opacity:.3}
+.persons-empty p{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);line-height:1.8;letter-spacing:.06em}
+
+/* ── MAIN CONTENT ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+
+/* ── TOOLBAR ── */
+.toolbar{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 20px;border-bottom:1px solid var(--border);
+  background:var(--surface);flex-shrink:0;flex-wrap:wrap;
+}
+.toolbar-section{display:flex;align-items:center;gap:8px}
+.toolbar-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.tb-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+
+.filter-pill{
+  display:flex;align-items:center;gap:5px;padding:4px 12px;
+  border:1px solid var(--border2);background:transparent;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--text2);
+  letter-spacing:.06em;border-radius:2px;cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.filter-pill:hover,.filter-pill.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.filter-pill.red-active{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+
+.tb-btn{
+  padding:5px 14px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid;border-radius:2px;transition:all .18s;
+}
+.tb-btn.primary{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.tb-btn.primary:hover:not(:disabled){background:var(--accent-glow);box-shadow:0 0 12px var(--accent-glow)}
+.tb-btn.danger{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.tb-btn.danger:hover:not(:disabled){background:rgba(255,77,106,.22)}
+.tb-btn:disabled{opacity:.35;cursor:not-allowed}
+
+.sort-sel{
+  padding:5px 10px;
+  border:1px solid var(--border2);background:var(--surface2);color:var(--text2);
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;
+  border-radius:2px;outline:none;cursor:pointer;
+}
+.sort-sel:focus{border-color:var(--accent)}
+
+/* Selection count badge */
+.sel-badge{
+  font-family:'DM Mono',monospace;font-size:10px;padding:3px 10px;
+  border:1px solid var(--purple);color:var(--purple);background:var(--purple-dim);
+  border-radius:2px;display:none;white-space:nowrap;
+}
+.sel-badge.show{display:block}
+
+/* ── CLUSTER GRID ── */
+.cluster-scroll{flex:1;overflow-y:auto;padding:20px}
+
+.cluster-section{margin-bottom:32px}
+.cluster-section-hd{
+  display:flex;align-items:center;gap:12px;margin-bottom:14px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+}
+.cluster-section-title{font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.cluster-section-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.1em}
+.cluster-section-count{
+  font-family:'DM Mono',monospace;font-size:10px;padding:1px 8px;
+  border:1px solid var(--border2);color:var(--text2);background:var(--surface2);border-radius:2px;
+  margin-left:auto;
+}
+
+.cluster-block{
+  background:var(--surface);border:1px solid var(--border);
+  margin-bottom:16px;animation:blockIn .3s ease both;
+}
+@keyframes blockIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.cluster-block-hd{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.cluster-id-badge{
+  font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.1em;padding:2px 8px;
+  border:1px solid var(--border2);color:var(--text3);background:transparent;border-radius:2px;
+}
+.cluster-size{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);flex-shrink:0}
+.cluster-cam-tag{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--text2);
+  padding:1px 7px;border:1px solid var(--border2);border-radius:2px;flex-shrink:0;
+}
+.cluster-label-form{display:flex;align-items:center;gap:6px;margin-left:auto}
+.cluster-input{
+  padding:4px 10px;font-size:10px;letter-spacing:.06em;
+  border:1px solid var(--border2);background:var(--bg2);color:var(--text);
+  border-radius:2px;outline:none;width:140px;transition:border-color .15s;
+}
+.cluster-input:focus{border-color:var(--accent)}
+.cluster-enroll-btn{
+  padding:4px 12px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  border:1px solid var(--accent);color:var(--accent);background:var(--accent-dim);
+  border-radius:2px;white-space:nowrap;transition:all .15s;text-transform:uppercase;
+}
+.cluster-enroll-btn:hover:not(:disabled){background:var(--accent-glow);box-shadow:0 0 10px var(--accent-glow)}
+.cluster-enroll-btn:disabled{opacity:.35;cursor:not-allowed}
+
+.cluster-faces{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px}
+
+.face-tile{
+  position:relative;cursor:pointer;
+  border:2px solid transparent;
+  border-radius:2px;transition:border-color .15s,transform .1s;
+  flex-shrink:0;
+}
+.face-tile:hover{transform:scale(1.04);border-color:var(--accent)}
+.face-tile.selected{border-color:var(--purple)}
+.face-tile img{
+  width:110px;height:110px;object-fit:cover;display:block;
+  border-radius:1px;background:var(--bg2);
+  image-rendering:auto;
+}
+.face-tile-check{
+  position:absolute;top:3px;right:3px;
+  width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.6);
+  background:transparent;display:grid;place-items:center;font-size:9px;
+  transition:all .15s;pointer-events:none;
+}
+.face-tile.selected .face-tile-check{background:var(--purple);border-color:var(--purple);color:#fff}
+.face-tile-ts{
+  position:absolute;bottom:2px;left:2px;right:2px;
+  font-family:'DM Mono',monospace;font-size:7px;color:rgba(255,255,255,.55);
+  text-align:center;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:rgba(0,0,0,.35);padding:1px 2px;border-radius:1px;
+}
+.face-tile-cam{
+  position:absolute;top:2px;left:3px;
+  font-family:'DM Mono',monospace;font-size:7px;color:rgba(255,255,255,.5);
+  pointer-events:none;
+}
+.face-tile-remove{
+  position:absolute;top:3px;left:3px;
+  width:18px;height:18px;padding:0;
+  border:1px solid rgba(255,77,106,.5);border-radius:2px;
+  background:rgba(0,0,0,.7);color:var(--red);
+  font-size:11px;line-height:1;cursor:pointer;
+  opacity:0;transition:opacity .15s,background .15s,color .15s;
+  display:grid;place-items:center;z-index:3;
+}
+.face-tile:hover .face-tile-remove{opacity:1}
+.face-tile-remove:hover{background:var(--red);border-color:var(--red);color:#fff}
+
+/* ── KNOWN PERSONS GRID (right panel) ── */
+.known-panel{
+  width:240px;flex-shrink:0;
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.known-detail{flex:1;overflow-y:auto;padding:0}
+.known-ph{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:24px;text-align:center;
+}
+.known-ph svg{width:36px;height:36px;fill:var(--text3);opacity:.25}
+.known-ph p{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);line-height:1.8;letter-spacing:.06em}
+
+.kd-photo{
+  width:100%;aspect-ratio:1;object-fit:cover;border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+.kd-photo-ph{
+  width:100%;aspect-ratio:1;display:grid;place-items:center;border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+.kd-photo-ph svg{width:48px;height:48px;fill:var(--text3);opacity:.25}
+.kd-body{padding:16px}
+.kd-name{font-size:18px;font-weight:800;letter-spacing:.06em;margin-bottom:4px}
+.kd-count-row{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:16px}
+.kd-stat{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 0;border-bottom:1px solid var(--border);
+}
+.kd-stat:last-child{border-bottom:none}
+.kd-stat-lbl{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.1em}
+.kd-stat-val{font-family:'DM Mono',monospace;font-size:10px;color:var(--text2)}
+.kd-actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.kd-btn{
+  padding:8px;font-size:10px;font-weight:700;letter-spacing:.1em;
+  border:1px solid;text-transform:uppercase;border-radius:2px;transition:all .15s;width:100%;
+}
+.kd-btn.enroll{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.kd-btn.enroll:hover{background:rgba(45,223,143,.2)}
+.kd-btn.del{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.kd-btn.del:hover{background:rgba(255,77,106,.22)}
+
+/* ── EMPTY / LOADING states ── */
+.cluster-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;height:100%;min-height:300px;text-align:center;padding:32px;
+}
+.cluster-empty svg{width:64px;height:64px;fill:var(--text3);opacity:.15}
+.cluster-empty h2{font-size:22px;font-weight:800;color:var(--text3);letter-spacing:.08em}
+.cluster-empty p{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);opacity:.5}
+
+/* spinner */
+.spinner{
+  width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+
+/* ── LABEL MODAL (assign to existing person) ── */
+.modal-bg{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+[data-theme="light"] .modal-bg{background:rgba(80,60,40,.35)}
+.modal-bg.open{opacity:1;pointer-events:all}
+.modal{
+  width:460px;max-width:calc(100vw - 32px);
+  background:var(--surface);border:1px solid var(--border2);
+  box-shadow:0 32px 80px rgba(0,0,0,.55);
+  transform:translateY(20px) scale(.98);transition:transform .25s;
+}
+.modal-bg.open .modal{transform:none}
+.modal-head{
+  padding:16px 22px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+}
+.modal-icon{width:32px;height:32px;border:1px solid var(--border2);display:grid;place-items:center;font-size:15px;color:var(--accent);background:var(--accent-dim)}
+.modal-title{font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.modal-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-top:2px;letter-spacing:.08em}
+.modal-x{margin-left:auto;width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--border2);color:var(--text3);font-size:14px;background:transparent;transition:all .15s}
+.modal-x:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.modal-body{padding:20px;display:flex;flex-direction:column;gap:14px}
+.modal-preview{display:flex;gap:10px;align-items:center;padding:10px;background:var(--bg2);border:1px solid var(--border)}
+.modal-preview img{width:88px;height:88px;object-fit:cover;border:1px solid var(--border2)}
+.modal-preview-info{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);line-height:1.9;letter-spacing:.06em}
+.field label{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--text3);text-transform:uppercase;margin-bottom:7px}
+.field input{
+  width:100%;padding:9px 13px;font-size:11px;
+  border:1px solid var(--border2);background:var(--bg2);color:var(--text);
+  border-radius:2px;outline:none;transition:border-color .15s;
+}
+.field input:focus{border-color:var(--accent)}
+.modal-err{padding:9px 13px;border:1px solid rgba(255,77,106,.4);background:var(--red-dim);font-family:'DM Mono',monospace;font-size:10px;color:var(--red);display:none;line-height:1.6}
+.modal-err.show{display:block}
+.modal-ft{padding:14px 22px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.m-btn{padding:8px 20px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid;border-radius:2px;transition:all .18s}
+.m-btn.cancel{border-color:var(--border2);color:var(--text2);background:transparent}
+.m-btn.cancel:hover{border-color:var(--text2)}
+.m-btn.primary{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.m-btn.primary:hover:not(:disabled){background:var(--accent-glow);box-shadow:0 0 14px var(--accent-glow)}
+.m-btn.primary:disabled{opacity:.35;cursor:not-allowed}
+.existing-persons{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ep-chip{
+  padding:4px 12px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.06em;
+  border:1px solid var(--border2);color:var(--text2);background:var(--surface2);
+  border-radius:2px;cursor:pointer;transition:all .15s;
+}
+.ep-chip:hover,.ep-chip.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* ── TOAST ── */
+.toast-area{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:300;pointer-events:none}
+.toast{padding:10px 18px;background:var(--surface2);border:1px solid var(--border2);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--text);box-shadow:0 8px 24px var(--shadow);animation:toastIn .3s ease both;display:flex;align-items:center;gap:8px;max-width:320px}
+.toast.ok{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.toast.err{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(16px)}}
+
+/* ── progress bar for enrollment ── */
+.enroll-bar{height:2px;width:100%;background:var(--border);margin-top:4px;display:none}
+.enroll-bar.show{display:block}
+.enroll-bar-fill{height:100%;background:var(--accent);width:0%;transition:width .4s}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <circle class="bm-ring" cx="18" cy="18" r="16" stroke-dasharray="4 6"/>
+        <circle class="bm-inner" cx="18" cy="18" r="10"/>
+        <circle class="bm-dot" cx="18" cy="18" r="4"/>
+        <circle class="bm-dot" cx="18" cy="4" r="2" opacity=".5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="brand-name">Atomo</div>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <a class="nav-tab" href="/">
+      <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      Live
+    </a>
+    <a class="nav-tab active" href="/clusters.html">
+      <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+      Face Clusters
+    </a>
+  </div>
+
+  <div class="topbar-right">
+    <div class="clock" id="clock"></div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">☀</button>
+  </div>
+</header>
+
+<!-- MAIN SHELL -->
+<div class="shell">
+
+  <!-- LEFT: Known Persons -->
+  <nav class="persons-panel">
+    <div class="panel-hd">
+      <span class="panel-hd-label">Known Persons</span>
+      <span class="panel-count" id="knownCount">0</span>
+    </div>
+    <div class="persons-list" id="personsList">
+      <div class="persons-empty" id="personsEmpty">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <p>No enrolled persons.<br>Label clusters below<br>to begin recognition.</p>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN: Clusters -->
+  <div class="main">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-section">
+        <span class="tb-label">Filter</span>
+        <button class="filter-pill active" id="filterAll" onclick="setFilter('all')">All</button>
+        <button class="filter-pill" id="filterUnknown" onclick="setFilter('unknown')">
+          <span style="color:var(--amber)">●</span> Unknown
+        </button>
+        <button class="filter-pill" id="filterKnown" onclick="setFilter('known')">
+          <span style="color:var(--green)">●</span> Labeled
+        </button>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <div class="toolbar-section">
+        <span class="tb-label">Sort</span>
+        <select class="sort-sel" id="sortSel" onchange="renderClusters()">
+          <option value="size-desc">Most faces</option>
+          <option value="size-asc">Fewest faces</option>
+          <option value="recent">Most recent</option>
+        </select>
+      </div>
+
+      <div class="toolbar-sep"></div>
+
+      <div class="toolbar-section" style="margin-left:auto">
+        <span class="sel-badge" id="selBadge">0 selected</span>
+        <button class="tb-btn primary" id="enrollSelBtn" onclick="enrollSelected()" style="display:none">Enroll Selected</button>
+        <button class="tb-btn danger" onclick="clearClusters()">Clear All</button>
+        <button class="tb-btn primary" onclick="loadAll()" style="margin-left:4px">↺ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Cluster Grid -->
+    <div class="cluster-scroll" id="clusterScroll">
+      <div class="cluster-empty" id="clusterEmpty">
+        <div class="spinner"></div>
+        <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">Loading clusters…</p>
+      </div>
+      <div id="clusterContainer" style="display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Known Person Detail -->
+  <aside class="known-panel">
+    <div class="panel-hd">
+      <span class="panel-hd-label">Person Detail</span>
+    </div>
+    <div class="known-detail" id="knownDetail">
+      <div class="known-ph" id="knownPh">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <p>Select a person<br>to view their profile<br>and detections.</p>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- ENROLL MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon">👤</div>
+      <div>
+        <div class="modal-title" id="modalTitle">Label & Enroll</div>
+        <div class="modal-sub" id="modalSub">Assign a name — all faces in this cluster will be enrolled</div>
+      </div>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-preview" id="modalPreview"></div>
+      <div class="modal-err" id="modalErr"></div>
+      <div class="field">
+        <label>Person Name</label>
+        <input type="text" id="enrollName" placeholder="e.g. Alice, John Smith…" autocomplete="off" onkeydown="if(event.key==='Enter')doEnroll()"/>
+      </div>
+      <div id="existingRow" style="display:none">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Or pick existing</div>
+        <div class="existing-persons" id="existingPersons"></div>
+      </div>
+      <div class="enroll-bar" id="enrollBar"><div class="enroll-bar-fill" id="enrollBarFill"></div></div>
+    </div>
+    <div class="modal-ft">
+      <button class="m-btn cancel" onclick="closeModal()">Cancel</button>
+      <button class="m-btn primary" id="enrollBtn" onclick="doEnroll()">Enroll All Faces</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST AREA -->
+<div class="toast-area" id="toastArea"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let clusters       = [];   // { id, faces:[{crop,ts,camId,camName,emb}], label, labeledAt }
+let excludedFaceTs = [];   // serverTs/ts removed manually — skip re-clustering
+let knownPersons   = [];   // [{ name, enrollCount, lastSeen, crops:[] }]
+let currentFilter  = 'all';
+let selectedFaces  = new Map(); // faceKey → {clusterId, face}
+let enrollTarget   = null; // { clusterIds:[], crops:[] }  (multi-cluster enroll)
+let selectedPerson = null;
+
+const MGMT_PORT = 5051;  // face_detector.py management HTTP port
+
+// ═══════════════════════════════════════════════════════════════════
+// THEME / CLOCK
+// ═══════════════════════════════════════════════════════════════════
+function getTheme(){ return document.documentElement.getAttribute('data-theme') || 'dark' }
+function toggleTheme(){
+  const next = getTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '☀' : '☾';
+  localStorage.setItem('nvr-theme', next);
+}
+(function initTheme(){
+  const s = localStorage.getItem('nvr-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', s);
+  document.getElementById('themeBtn').textContent = s === 'dark' ? '☀' : '☾';
+})();
+
+function tickClock(){
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) +
+    '  ' + n.toTimeString().slice(0,8);
+}
+setInterval(tickClock,1000); tickClock();
+
+// ═══════════════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════════════
+function toast(msg, type=''){
+  const area = document.getElementById('toastArea');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(()=>{ el.style.animation='toastOut .3s ease forwards'; setTimeout(()=>el.remove(),350); }, 3500);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLUSTER STORAGE (server-side via /api/clusters)
+// ═══════════════════════════════════════════════════════════════════
+async function loadClusters(){
+  try {
+    const r = await fetch('/api/clusters');
+    if(!r.ok) throw new Error('Server error');
+    const data = await r.json();
+    if(Array.isArray(data)){
+      clusters = data;
+      excludedFaceTs = [];
+    } else {
+      clusters = data.clusters || [];
+      excludedFaceTs = data.excludedFaceTs || [];
+    }
+  } catch(e) {
+    clusters = [];
+    excludedFaceTs = [];
+    console.warn('Clusters load failed:', e);
+  }
+}
+
+async function saveClusters(){
+  try {
+    await fetch('/api/clusters', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ clusters, excludedFaceTs })
+    });
+  } catch(e){ console.warn('Clusters save failed:', e); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// KNOWN PERSONS (from face_detector.py management API via proxy)
+// ═══════════════════════════════════════════════════════════════════
+async function loadKnownPersons(){
+  try {
+    const r = await fetch('/api/known');
+    if(!r.ok) throw new Error();
+    const d = await r.json();
+    // Build rich objects from cluster data + known names
+    const names = d.names || [];
+    const portraits = d.portraits || {};
+    knownPersons = names.map(name => {
+      const relatedClusters = clusters.filter(c => c.label === name);
+      const allFaces = relatedClusters.flatMap(c => c.faces || []);
+      const lastSeen = allFaces.reduce((max,f) => Math.max(max, f.ts||0), 0);
+      const clusterCrop = allFaces.length ? allFaces[allFaces.length-1].crop : null;
+      return {
+        name,
+        enrollCount: relatedClusters.reduce((s,c)=>s+(c.enrollCount||0),0),
+        clusterCount: relatedClusters.length,
+        lastSeen,
+        crop: portraits[name] || clusterCrop,
+      };
+    });
+  } catch(e) {
+    // fallback: derive from labeled clusters
+    const labelMap = {};
+    clusters.filter(c=>c.label).forEach(c=>{
+      if(!labelMap[c.label]) labelMap[c.label] = { name:c.label, enrollCount:0, clusterCount:0, lastSeen:0, crop:null };
+      labelMap[c.label].clusterCount++;
+      labelMap[c.label].enrollCount += (c.enrollCount||0);
+      const faces = c.faces||[];
+      if(faces.length) {
+        labelMap[c.label].lastSeen = Math.max(labelMap[c.label].lastSeen, faces[faces.length-1].ts||0);
+        labelMap[c.label].crop = faces[faces.length-1].crop;
+      }
+    });
+    knownPersons = Object.values(labelMap);
+  }
+  renderPersonsList();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COSINE DISTANCE
+// ═══════════════════════════════════════════════════════════════════
+function cosine(a, b){
+  let dot=0, na=0, nb=0;
+  for(let i=0;i<a.length;i++){ dot+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; }
+  return 1 - dot/(Math.sqrt(na)*Math.sqrt(nb)+1e-9);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BUILD / MERGE CLUSTERS FROM FACE EVENTS
+//
+// Strategy:
+//  1. Start from whatever is already in clusters[] (loaded from disk)
+//     — these have .centroid stored, so they survive server restarts.
+//  2. Fetch live /api/face-events and extract unknown+emb events.
+//  3. For each new event, check if it matches an existing cluster
+//     centroid (by serverTs — skip events already ingested).
+//  4. Only ADD, never destroy existing clusters.
+//  5. Save back to disk so nothing is lost.
+// ═══════════════════════════════════════════════════════════════════
+async function buildClustersFromEvents(){
+  const THRESHOLD = 0.45;
+
+  // Collect all face-event server timestamps already stored in clusters
+  const storedTs = new Set();
+  clusters.forEach(c => (c.faces||[]).forEach(f => storedTs.add(f.serverTs||f.ts)));
+
+  // Fetch live events
+  let events = [];
+  try {
+    const r = await fetch('/api/face-events');
+    if(r.ok) events = await r.json();
+  } catch(e){ /* no events available — still show saved clusters */ }
+
+  // Only unknown events with embeddings that we haven't stored yet
+  const newEvents = events.filter(ev =>
+    !ev.known && ev.emb && ev.crop &&
+    !storedTs.has(ev.serverTs||ev.ts)
+  );
+
+  let changed = false;
+  for(const ev of newEvents){
+    const emb = ev.emb;
+    const faceEntry = {
+      crop:    ev.crop,
+      ts:      ev.ts || ev.serverTs || Date.now(),
+      serverTs: ev.serverTs || ev.ts || Date.now(),
+      camId:   ev.camId,
+      camName: ev.camName || ev.camId || '?',
+      emb,
+    };
+
+    // Find best matching existing cluster
+    let bestIdx = -1, bestDist = THRESHOLD;
+    for(let i=0; i<clusters.length; i++){
+      const c = clusters[i];
+      if(!c.centroid) continue;
+      const d = cosine(emb, c.centroid);
+      if(d < bestDist){ bestDist=d; bestIdx=i; }
+    }
+
+    if(bestIdx >= 0){
+      // Merge into existing cluster — update running centroid
+      const c = clusters[bestIdx];
+      const n = c.faces.length;
+      c.centroid = c.centroid.map((v,j)=>(v*n+emb[j])/(n+1));
+      c.faces.push(faceEntry);
+    } else {
+      // New cluster
+      const id = `cluster_${Date.now().toString(36)}_${Math.random().toString(36).slice(2,6)}`;
+      clusters.push({
+        id,
+        faces:      [faceEntry],
+        centroid:   [...emb],
+        label:      null,
+        labeledAt:  null,
+        enrollCount: 0,
+      });
+    }
+    changed = true;
+  }
+
+  if(changed) await saveClusters();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// LOAD ALL
+// ═══════════════════════════════════════════════════════════════════
+async function loadAll(){
+  setLoadingState('Building clusters…');
+
+  await loadClusters();           // load saved clusters (with centroids) from disk
+  await buildClustersFromEvents(); // merge any new live events on top
+  await loadKnownPersons();
+  renderClusters();
+}
+
+function setLoadingState(msg){
+  document.getElementById('clusterEmpty').innerHTML =
+    `<div class="spinner"></div><p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);margin-top:12px">${msg}</p>`;
+  document.getElementById('clusterEmpty').style.display = 'flex';
+  document.getElementById('clusterContainer').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════
+function setFilter(f){
+  currentFilter = f;
+  ['filterAll','filterUnknown','filterKnown'].forEach(id=>{
+    document.getElementById(id).classList.remove('active','red-active');
+  });
+  const map = {all:'filterAll',unknown:'filterUnknown',known:'filterKnown'};
+  document.getElementById(map[f]).classList.add('active');
+  renderClusters();
+}
+
+function sortedClusters(){
+  const sort = document.getElementById('sortSel').value;
+  let list = [...clusters];
+  if(currentFilter==='unknown') list = list.filter(c=>!c.label);
+  if(currentFilter==='known')   list = list.filter(c=>c.label);
+  if(sort==='size-desc') list.sort((a,b)=>(b.faces?.length||0)-(a.faces?.length||0));
+  if(sort==='size-asc')  list.sort((a,b)=>(a.faces?.length||0)-(b.faces?.length||0));
+  if(sort==='recent')    list.sort((a,b)=>{
+    const ta = Math.max(...(a.faces||[]).map(f=>f.ts||0));
+    const tb = Math.max(...(b.faces||[]).map(f=>f.ts||0));
+    return tb-ta;
+  });
+  return list;
+}
+
+function renderClusters(){
+  const sorted = sortedClusters();
+  const container = document.getElementById('clusterContainer');
+  const empty = document.getElementById('clusterEmpty');
+  container.innerHTML = '';
+
+  if(!sorted.length){
+    empty.style.display='flex';
+    const filterMsg = currentFilter==='unknown'
+      ? 'No unlabeled clusters. All detected faces have been labeled.'
+      : currentFilter==='known'
+      ? 'No labeled clusters yet. Label unknown clusters below.'
+      : '';
+
+    empty.innerHTML = `
+      <svg viewBox="0 0 24 24" style="width:56px;height:56px;fill:var(--text3);opacity:.15"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+      <h2 style="font-size:18px;font-weight:800;color:var(--text3);letter-spacing:.06em">${filterMsg ? 'No Clusters' : 'No Face Clusters Yet'}</h2>
+      ${filterMsg
+        ? `<p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);opacity:.6">${filterMsg}</p>`
+        : `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);line-height:2.2;letter-spacing:.06em;border:1px solid var(--border);padding:16px 24px;background:var(--surface);max-width:380px;text-align:left">
+            <div style="color:var(--text2);font-weight:600;margin-bottom:8px;font-size:11px">HOW CLUSTERS ARE BUILT</div>
+            <div>1. <span style="color:var(--accent)">face_detector.py</span> must be running</div>
+            <div>2. At least one camera must have a live RTSP stream</div>
+            <div>3. Unrecognized faces are detected and sent here</div>
+            <div>4. This page groups them by facial similarity</div>
+            <div style="margin-top:10px;color:var(--text2)">5. You then label each group → person is enrolled</div>
+            <div style="color:var(--text2)">6. From then on, that person is recognized live ✓</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="tb-btn primary" onclick="loadAll()" style="font-size:11px">↺ Check for events</button>
+          </div>`
+      }`;
+    container.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  container.style.display = 'block';
+
+  // Split into known / unknown sections
+  const unknownList = sorted.filter(c=>!c.label);
+  const knownList   = sorted.filter(c=>c.label);
+
+  if(unknownList.length && (currentFilter==='all'||currentFilter==='unknown')){
+    const sec = makeSectionEl('Unknown Faces', 'Unrecognized clusters — label to enroll into recognition DB', unknownList);
+    container.appendChild(sec);
+  }
+  if(knownList.length && (currentFilter==='all'||currentFilter==='known')){
+    const sec = makeSectionEl('Labeled Persons', 'Already enrolled — detection will recognize these automatically', knownList);
+    container.appendChild(sec);
+  }
+}
+
+function makeSectionEl(title, sub, list){
+  const sec = document.createElement('div');
+  sec.className = 'cluster-section';
+  sec.innerHTML = `
+    <div class="cluster-section-hd">
+      <div>
+        <div class="cluster-section-title">${esc(title)}</div>
+        <div class="cluster-section-sub">${esc(sub)}</div>
+      </div>
+      <div class="cluster-section-count">${list.length} cluster${list.length!==1?'s':''}</div>
+    </div>`;
+  list.forEach(c => sec.appendChild(makeClusterBlock(c)));
+  return sec;
+}
+
+function makeClusterBlock(cluster){
+  const block = document.createElement('div');
+  block.className = 'cluster-block';
+  block.id = `cblock-${cluster.id}`;
+
+  const faces = cluster.faces || [];
+  const camIds = [...new Set(faces.map(f=>f.camName||f.camId||'?'))];
+  const isLabeled = !!cluster.label;
+
+  const headerBadgeColor = isLabeled ? 'var(--green)' : 'var(--amber)';
+  const headerBadgeBg    = isLabeled ? 'var(--green-dim)' : 'var(--amber-dim)';
+  const headerLabel      = isLabeled
+    ? `<span style="padding:2px 10px;border:1px solid var(--green);background:var(--green-dim);color:var(--green);font-family:'DM Mono',monospace;font-size:9px;border-radius:2px">${esc(cluster.label)}</span>`
+    : '';
+
+  block.innerHTML = `
+    <div class="cluster-block-hd">
+      <span class="cluster-id-badge">${esc(cluster.id)}</span>
+      <span class="cluster-size">${faces.length} face${faces.length!==1?'s':''}</span>
+      ${camIds.map(c=>`<span class="cluster-cam-tag">${esc(c)}</span>`).join('')}
+      ${headerLabel}
+      <div class="cluster-label-form">
+        <input type="text" class="cluster-input" id="cinput-${cluster.id}"
+          placeholder="${isLabeled?esc(cluster.label):'Enter name…'}"
+          value="${isLabeled?esc(cluster.label):''}"
+          onkeydown="if(event.key==='Enter') enrollCluster('${cluster.id}')"/>
+        <button class="cluster-enroll-btn" onclick="enrollCluster('${cluster.id}')">
+          ${isLabeled ? '↺ Re-enroll' : 'Label & Enroll'}
+        </button>
+        ${isLabeled ? `<button class="cluster-enroll-btn" style="border-color:var(--red);color:var(--red);background:var(--red-dim)" onclick="unlabelCluster('${cluster.id}')">Unlabel</button>` : ''}
+      </div>
+    </div>
+    <div class="cluster-faces" id="cfaces-${cluster.id}"></div>`;
+
+  // Render face tiles
+  const facesEl = block.querySelector(`#cfaces-${cluster.id}`);
+  faces.forEach((face, fi) => {
+    const key = `${cluster.id}__${fi}`;
+    const tile = document.createElement('div');
+    tile.className = 'face-tile' + (selectedFaces.has(key) ? ' selected' : '');
+    tile.title = `${face.camName||face.camId||'?'} · ${new Date(face.ts).toLocaleTimeString()}`;
+    const ts = new Date(face.ts).toLocaleTimeString('en-GB',{hour12:false}).slice(0,5);
+    tile.innerHTML = `
+      <button type="button" class="face-tile-remove" title="Remove this photo from cluster"
+        onclick="removeFaceFromCluster(${JSON.stringify(cluster.id)}, ${fi}, event)">✕</button>
+      <img src="data:image/jpeg;base64,${face.crop}" loading="lazy"/>
+      <div class="face-tile-check">✓</div>
+      <div class="face-tile-cam">${esc((face.camName||face.camId||'').slice(0,8))}</div>
+      <div class="face-tile-ts">${ts}</div>`;
+    tile.addEventListener('click', (e)=>{
+      if(e.target.closest('.face-tile-remove')) return;
+      toggleFaceTile(key, cluster.id, face, tile);
+    });
+    facesEl.appendChild(tile);
+  });
+
+  return block;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REMOVE SINGLE FACE FROM CLUSTER
+// ═══════════════════════════════════════════════════════════════════
+function recalcCentroid(cluster){
+  const withEmb = (cluster.faces||[]).filter(f=>f.emb && f.emb.length);
+  if(!withEmb.length){
+    cluster.centroid = null;
+    return;
+  }
+  const dim = withEmb[0].emb.length;
+  const sum = new Array(dim).fill(0);
+  for(const f of withEmb){
+    for(let i=0; i<dim; i++) sum[i] += f.emb[i];
+  }
+  cluster.centroid = sum.map(v=>v/withEmb.length);
+}
+
+function clearClusterSelection(clusterId){
+  for(const [k, v] of [...selectedFaces.entries()]){
+    if(v.clusterId === clusterId) selectedFaces.delete(k);
+  }
+}
+
+async function removeFaceFromCluster(clusterId, faceIndex, e){
+  if(e){
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  const cluster = clusters.find(c=>c.id===clusterId);
+  if(!cluster?.faces?.length || faceIndex < 0 || faceIndex >= cluster.faces.length) return;
+  if(!confirm('Remove this photo from this cluster?')) return;
+
+  cluster.faces.splice(faceIndex, 1);
+  clearClusterSelection(clusterId);
+
+  if(!cluster.faces.length){
+    clusters = clusters.filter(c=>c.id!==clusterId);
+    toast('Photo removed — empty cluster deleted', '');
+  } else {
+    recalcCentroid(cluster);
+    toast('Photo removed from cluster', '');
+  }
+
+  await saveClusters();
+  updateSelectionUI();
+  renderClusters();
+  await loadKnownPersons();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACE TILE SELECTION
+// ═══════════════════════════════════════════════════════════════════
+function toggleFaceTile(key, clusterId, face, tileEl){
+  if(selectedFaces.has(key)){
+    selectedFaces.delete(key);
+    tileEl.classList.remove('selected');
+  } else {
+    selectedFaces.set(key, { clusterId, face });
+    tileEl.classList.add('selected');
+  }
+  updateSelectionUI();
+}
+
+function updateSelectionUI(){
+  const n = selectedFaces.size;
+  const badge = document.getElementById('selBadge');
+  const enrollBtn = document.getElementById('enrollSelBtn');
+  badge.textContent = `${n} selected`;
+  badge.classList.toggle('show', n > 0);
+  enrollBtn.style.display = n > 0 ? '' : 'none';
+}
+
+function enrollSelected(){
+  if(!selectedFaces.size) return;
+  const crops = [...selectedFaces.values()].map(s=>s.face.crop);
+  const clusterIds = [...new Set([...selectedFaces.values()].map(s=>s.clusterId))];
+  openModal({ clusterIds, crops });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ENROLL A FULL CLUSTER
+// ═══════════════════════════════════════════════════════════════════
+function enrollCluster(clusterId){
+  const cluster = clusters.find(c=>c.id===clusterId);
+  if(!cluster) return;
+  const nameVal = document.getElementById(`cinput-${clusterId}`)?.value?.trim() || '';
+  openModal({ clusterIds:[clusterId], crops:(cluster.faces||[]).map(f=>f.crop), prefill: nameVal || cluster.label || '' });
+}
+
+function unlabelCluster(clusterId){
+  const cluster = clusters.find(c=>c.id===clusterId);
+  if(!cluster) return;
+  if(!confirm(`Remove label "${cluster.label}" from this cluster?`)) return;
+  cluster.label = null;
+  cluster.labeledAt = null;
+  saveClusters();
+  loadAll();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════════════
+function openModal({ clusterIds, crops, prefill='' }){
+  enrollTarget = { clusterIds, crops };
+  document.getElementById('enrollName').value = prefill;
+  document.getElementById('modalErr').className = 'modal-err';
+
+  // Preview: first 6 crops
+  const preview = document.getElementById('modalPreview');
+  preview.innerHTML = crops.slice(0,6).map(c=>
+    `<img src="data:image/jpeg;base64,${c}" style="width:80px;height:80px;object-fit:cover;border:1px solid var(--border2);border-radius:2px;flex-shrink:0"/>`
+  ).join('') + `<div class="modal-preview-info">
+    ${crops.length} face${crops.length!==1?'s':''} · ${clusterIds.length} cluster${clusterIds.length!==1?'s':''}
+  </div>`;
+
+  // Existing persons quick-pick
+  const row = document.getElementById('existingRow');
+  const epEl = document.getElementById('existingPersons');
+  epEl.innerHTML = '';
+  if(knownPersons.length){
+    row.style.display = '';
+    knownPersons.forEach(p=>{
+      const chip = document.createElement('button');
+      chip.className = 'ep-chip';
+      chip.textContent = p.name;
+      chip.onclick = ()=>{
+        document.getElementById('enrollName').value = p.name;
+        epEl.querySelectorAll('.ep-chip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');
+      };
+      epEl.appendChild(chip);
+    });
+  } else {
+    row.style.display = 'none';
+  }
+
+  document.getElementById('enrollBar').className = 'enroll-bar';
+  document.getElementById('enrollBarFill').style.width = '0%';
+  document.getElementById('enrollBtn').disabled = false;
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(()=>document.getElementById('enrollName').focus(), 100);
+}
+
+function closeModal(){
+  document.getElementById('modalBg').classList.remove('open');
+  enrollTarget = null;
+}
+
+/** Upscale / re-encode cluster crops before enroll (helps older low-res thumbnails). */
+function enhanceCropB64(b64){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const minPx = 320, maxPx = 640;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if(!w || !h){ resolve(b64); return; }
+      let scale = 1;
+      const long = Math.max(w, h);
+      if(long < minPx) scale = minPx / long;
+      else if(long > maxPx) scale = maxPx / long;
+      w = Math.max(1, Math.round(w * scale));
+      h = Math.max(1, Math.round(h * scale));
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', 0.92).split(',')[1]);
+    };
+    img.onerror = () => reject(new Error('Could not decode crop'));
+    img.src = 'data:image/jpeg;base64,' + b64;
+  });
+}
+
+async function doEnroll(){
+  if(!enrollTarget) return;
+  const name = document.getElementById('enrollName').value.trim();
+  if(!name){ showModalErr('Please enter a name'); return; }
+
+  const btn = document.getElementById('enrollBtn');
+  const bar = document.getElementById('enrollBar');
+  const fill = document.getElementById('enrollBarFill');
+  btn.disabled = true;
+  bar.className = 'enroll-bar show';
+
+  const crops = enrollTarget.crops;
+  let done = 0, failed = 0;
+
+  for(const raw of crops){
+    try {
+      const crop_b64 = await enhanceCropB64(raw);
+      const r = await fetch('/api/enroll', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, crop_b64 })
+      });
+      if(!r.ok) throw new Error((await r.json()).error||'Enroll failed');
+      done++;
+    } catch(e) {
+      failed++;
+    }
+    fill.style.width = `${Math.round((done+failed)/crops.length*100)}%`;
+  }
+
+  // Update cluster labels
+  enrollTarget.clusterIds.forEach(cid=>{
+    const c = clusters.find(x=>x.id===cid);
+    if(c){ c.label=name; c.labeledAt=Date.now(); c.enrollCount=(c.enrollCount||0)+done; }
+  });
+  await saveClusters();
+
+  // Clear selection
+  selectedFaces.clear();
+  updateSelectionUI();
+
+  closeModal();
+
+  if(failed===0) toast(`✓ Enrolled ${done} faces as "${name}"`, 'ok');
+  else if(done>0) toast(`Enrolled ${done}/${crops.length} faces as "${name}" (${failed} failed)`, '');
+  else toast(`Enrollment failed — is face_detector.py running?`, 'err');
+
+  await loadAll();
+}
+
+function showModalErr(msg){
+  const el = document.getElementById('modalErr');
+  el.textContent = msg;
+  el.className = 'modal-err show';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PERSONS LIST (left panel)
+// ═══════════════════════════════════════════════════════════════════
+function renderPersonsList(){
+  const list = document.getElementById('personsList');
+  list.querySelectorAll('.person-item').forEach(e=>e.remove());
+  document.getElementById('knownCount').textContent = knownPersons.length;
+  const empty = document.getElementById('personsEmpty');
+  if(!knownPersons.length){ empty.style.display='flex'; return; }
+  empty.style.display='none';
+  knownPersons.forEach(p=>{
+    const item = document.createElement('div');
+    item.className = 'person-item' + (selectedPerson===p.name ? ' active' : '');
+    if(p.crop){
+      item.innerHTML = `
+        <img class="person-avatar" src="data:image/jpeg;base64,${p.crop}"/>
+        <div class="person-info">
+          <div class="person-name">${esc(p.name)}</div>
+          <div class="person-count">${p.enrollCount||'?'} enrollments</div>
+        </div>
+        <button class="person-del" title="Delete" onclick="deletePerson('${esc(p.name)}',event)">✕</button>`;
+    } else {
+      item.innerHTML = `
+        <div class="person-avatar-ph"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
+        <div class="person-info">
+          <div class="person-name">${esc(p.name)}</div>
+          <div class="person-count">${p.enrollCount||'?'} enrollments</div>
+        </div>
+        <button class="person-del" title="Delete" onclick="deletePerson('${esc(p.name)}',event)">✕</button>`;
+    }
+    item.addEventListener('click', ()=>showPersonDetail(p));
+    list.appendChild(item);
+  });
+}
+
+function showPersonDetail(p){
+  selectedPerson = p.name;
+  renderPersonsList();
+  const detail = document.getElementById('knownDetail');
+  const lastSeenStr = p.lastSeen ? new Date(p.lastSeen).toLocaleString('en-GB',{day:'2-digit',month:'short',hour12:false}) : '—';
+  const clusterCount = clusters.filter(c=>c.label===p.name).length;
+  detail.innerHTML = `
+    ${p.crop
+      ? `<img class="kd-photo" src="data:image/jpeg;base64,${p.crop}"/>`
+      : `<div class="kd-photo-ph"><svg viewBox="0 0 24 24" style="width:48px;height:48px;fill:var(--text3);opacity:.25"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>`}
+    <div class="kd-body">
+      <div class="kd-name">${esc(p.name)}</div>
+      <div class="kd-count-row">ENROLLED PERSON</div>
+      <div class="kd-stat">
+        <span class="kd-stat-lbl">Embeddings</span>
+        <span class="kd-stat-val">${p.enrollCount||'?'}</span>
+      </div>
+      <div class="kd-stat">
+        <span class="kd-stat-lbl">Clusters</span>
+        <span class="kd-stat-val">${clusterCount}</span>
+      </div>
+      <div class="kd-stat">
+        <span class="kd-stat-lbl">Last seen</span>
+        <span class="kd-stat-val">${lastSeenStr}</span>
+      </div>
+      <div class="kd-actions">
+        <button class="kd-btn del" onclick="deletePerson('${esc(p.name)}')">Delete from DB</button>
+      </div>
+    </div>`;
+}
+
+async function deletePerson(name, e){
+  if(e) e.stopPropagation();
+  if(!confirm(`Delete "${name}" from face DB? This cannot be undone.`)) return;
+  try {
+    const r = await fetch(`/api/known/${encodeURIComponent(name)}`, { method:'DELETE' });
+    if(!r.ok && r.status!==404) throw new Error();
+    // Also remove labels from clusters
+    clusters.filter(c=>c.label===name).forEach(c=>{ c.label=null; c.labeledAt=null; c.enrollCount=0; });
+    await saveClusters();
+    if(selectedPerson===name){
+      selectedPerson=null;
+      document.getElementById('knownDetail').innerHTML=`
+        <div class="known-ph" id="knownPh">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+          <p>Select a person<br>to view their profile.</p>
+        </div>`;
+    }
+    toast(`"${name}" deleted from face DB`, '');
+    await loadAll();
+  } catch(err){
+    toast('Delete failed — is face_detector.py running?', 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLEAR ALL CLUSTERS
+// ═══════════════════════════════════════════════════════════════════
+async function clearClusters(){
+  if(!confirm('Clear all cluster data? (Enrolled persons in face DB are NOT deleted)')) return;
+  clusters = [];
+  await saveClusters();
+  selectedFaces.clear();
+  updateSelectionUI();
+  renderClusters();
+  toast('Cluster data cleared', '');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════════════════════════
+// WEBSOCKET — live clustering of incoming events
+// ═══════════════════════════════════════════════════════════════════
+let faceWs=null;
+function connectWs(){
+  const proto = location.protocol==='https:'?'wss':'ws';
+  faceWs = new WebSocket(`${proto}://${location.host}/ws`);
+  faceWs.onclose = ()=> setTimeout(connectWs, 3000);
+  faceWs.onmessage = async e=>{
+    try {
+      const msg = JSON.parse(e.data);
+      if(msg.type==='face_event' && !msg.event?.known && msg.event?.emb){
+        // Debounce: re-cluster every 5 events or after 10s
+        clusterDebounce();
+      }
+    } catch{}
+  };
+}
+let _debTimer=null, _debCount=0;
+function clusterDebounce(){
+  _debCount++;
+  clearTimeout(_debTimer);
+  const delay = _debCount>=5 ? 0 : 10000;
+  _debTimer = setTimeout(async ()=>{
+    _debCount=0;
+    await buildClustersFromEvents();
+    await loadKnownPersons();
+    renderClusters();
+  }, delay);
+}
+connectWs();
+
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>

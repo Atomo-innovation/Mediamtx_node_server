@@ -1,0 +1,28 @@
+logLevel: info
+
+rtsp: yes
+rtspAddress: :8554
+
+rtmp: no
+hls: no
+
+webrtc: yes
+webrtcAddress: :8889
+
+api: yes
+apiAddress: :9997
+
+paths:
+  front_mpktp069:
+    source: rtsp://admin:admin123456@192.168.1.10:8554/profile0
+    sourceOnDemand: no
+    sourceProtocol: tcp
+    readUser:
+    readPass:
+
+  back_mpktq538:
+    source: rtsp://admin12345:admin12345@192.168.1.102/stream1
+    sourceOnDemand: no
+    sourceProtocol: tcp
+    readUser:
+    readPass:
