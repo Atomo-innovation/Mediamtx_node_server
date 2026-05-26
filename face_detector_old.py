@@ -105,8 +105,6 @@ ap.add_argument("--min_quality",  type=float, default=20.0,
                 help="Laplacian blur threshold — skip blurry crops")
 ap.add_argument("--min_face_px",  type=int,   default=40,
                 help="Minimum face side in pixels")
-ap.add_argument("--min_conf",      type=float, default=0.45,
-                help="Drop events with confidence below this (default 0.30 = 30%%)")
 ap.add_argument("--face_thresh",  type=float, default=0.50)
 ap.add_argument("--nms",          type=float, default=0.45)
 ap.add_argument("--tiles",        type=int,   default=1, choices=[0,1,2,4])
@@ -462,10 +460,6 @@ class RecogWorker(threading.Thread):
 
             self._track_lbl[pos_key] = (most_common, avg_conf)
 
-            # ── confidence filter (30% floor) ────────────────────────────────
-            if avg_conf < ARGS.min_conf:
-                continue
-
             # ── min interval gate ─────────────────────────────────────────────
             now = time.time()
             if now - self._last_event.get(pos_key, 0) < self.min_interval:
@@ -473,21 +467,16 @@ class RecogWorker(threading.Thread):
             self._last_event[pos_key] = now
 
             # ── post event ────────────────────────────────────────────────────
-            is_known = most_common != "Unknown"
             crop_b64 = _to_b64(crop_bgr)
-            payload: dict = {
+            self.event_q.put({
                 "camId":    f"cam_{self.cam_id}",
                 "camName":  self.cam_name,
                 "name":     most_common,
-                "known":    is_known,
+                "known":    most_common != "Unknown",
                 "score":    round(avg_conf, 3),
                 "ts":       int(now * 1000),
                 "crop":     crop_b64,
-            }
-            # Send embedding for server-side clustering of unknowns
-            if not is_known and emb is not None:
-                payload["emb"] = emb.tolist()
-            self.event_q.put(payload)
+            })
 
         print(f"[RecogWorker-{self.cam_id}] Stopped", flush=True)
 
