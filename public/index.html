@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Live Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+/* ════════════════════════════════════════════════════
+   TOKENS — Dark & Light
+════════════════════════════════════════════════════ */
+:root,[data-theme="dark"]{
+  --bg:         #0c0f14;
+  --bg2:        #111720;
+  --surface:    #161d28;
+  --surface2:   #1c2535;
+  --border:     #222e40;
+  --border2:    #2a3a52;
+  --accent:     #00d2c8;
+  --accent-dim: rgba(0,210,200,.12);
+  --accent-glow:rgba(0,210,200,.25);
+  --red:        #ff4d6a;
+  --red-dim:    rgba(255,77,106,.12);
+  --green:      #2ddf8f;
+  --green-dim:  rgba(45,223,143,.1);
+  --amber:      #ffb940;
+  --amber-dim:  rgba(255,185,64,.1);
+  --text:       #dce8f5;
+  --text2:      #8499b4;
+  --text3:      #445870;
+  --invert:     #ffffff;
+  --shadow:     rgba(0,0,0,.45);
+  --card-shadow:0 4px 32px rgba(0,0,0,.4);
+  --scheme: dark;
+}
+[data-theme="light"]{
+  --bg:         #f0ebe2;
+  --bg2:        #e8e1d6;
+  --surface:    #faf7f2;
+  --surface2:   #f0ebe2;
+  --border:     #d8d0c4;
+  --border2:    #c8bfb2;
+  --accent:     #0077cc;
+  --accent-dim: rgba(0,119,204,.1);
+  --accent-glow:rgba(0,119,204,.2);
+  --red:        #d93b54;
+  --red-dim:    rgba(217,59,84,.1);
+  --green:      #1a9e5f;
+  --green-dim:  rgba(26,158,95,.1);
+  --amber:      #c07a00;
+  --amber-dim:  rgba(192,122,0,.1);
+  --text:       #1a2332;
+  --text2:      #5a6e84;
+  --text3:      #9aabbf;
+  --invert:     #000000;
+  --shadow:     rgba(0,0,0,.12);
+  --card-shadow:0 4px 24px rgba(0,0,0,.1);
+  --scheme: light;
+}
+
+/* ════════════════════════════════════════════════════
+   RESET & BASE
+════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:var(--scheme)}
+body{
+  font-family:'Syne',sans-serif;
+  background:var(--bg);color:var(--text);
+  height:100vh;display:flex;flex-direction:column;
+  overflow:hidden;transition:background .3s,color .3s;
+}
+button{font-family:'Syne',sans-serif;cursor:pointer}
+input{font-family:'DM Mono',monospace}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ════════════════════════════════════════════════════
+   TOP BAR
+════════════════════════════════════════════════════ */
+.topbar{
+  height:56px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 24px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:relative;z-index:50;
+  box-shadow:0 2px 16px var(--shadow);
+}
+
+.brand{display:flex;align-items:center;gap:14px}
+.brand-mark{
+  position:relative;width:36px;height:36px;
+  display:grid;place-items:center;flex-shrink:0;
+}
+.brand-mark svg{width:36px;height:36px}
+.brand-mark .bm-ring{
+  fill:none;stroke:var(--accent);stroke-width:1.5;
+  animation:spin 12s linear infinite;transform-origin:center;
+}
+.brand-mark .bm-dot{fill:var(--accent)}
+.brand-mark .bm-inner{fill:none;stroke:var(--border2);stroke-width:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.brand-text{}
+.brand-name{
+  font-size:16px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--text);line-height:1;
+}
+.brand-tagline{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);letter-spacing:.12em;margin-top:3px;
+}
+
+.topbar-center{
+  position:absolute;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:12px;
+  z-index:2;
+}
+.status-badge{
+  display:flex;align-items:center;gap:7px;
+  padding:5px 14px;
+  border:1px solid var(--border2);
+  background:var(--surface2);
+  font-family:'DM Mono',monospace;font-size:10px;
+  letter-spacing:.1em;color:var(--text2);
+  transition:all .3s;
+}
+.status-badge.ok{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.status-badge .pulse{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--text3);flex-shrink:0;transition:background .3s;
+}
+.status-badge.ok .pulse{background:var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+.nav-tabs{display:flex;gap:2px}
+.nav-tab{
+  padding:6px 18px;
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--border2);color:var(--text3);background:transparent;
+  text-decoration:none;display:flex;align-items:center;gap:6px;
+  transition:all .15s;border-radius:2px;
+}
+.nav-tab:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.nav-tab.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+.topbar-right{display:flex;align-items:center;gap:10px}
+
+.clock{
+  font-family:'DM Mono',monospace;font-size:11px;
+  color:var(--text3);letter-spacing:.06em;padding:0 6px;
+}
+
+/* Theme toggle */
+.theme-btn{
+  width:34px;height:34px;border:1px solid var(--border2);
+  background:var(--surface2);color:var(--text2);
+  display:grid;place-items:center;font-size:15px;
+  transition:all .2s;border-radius:4px;
+}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* Add camera button */
+.btn-add{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 18px;
+  border:1px solid var(--accent);
+  background:var(--accent-dim);color:var(--accent);
+  font-size:12px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;
+  transition:all .2s;border-radius:3px;
+}
+.btn-add:hover{background:var(--accent-glow);box-shadow:0 0 20px var(--accent-glow)}
+.btn-add svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
+
+/* ════════════════════════════════════════════════════
+   LAYOUT
+════════════════════════════════════════════════════ */
+.shell{display:flex;flex:1;overflow:hidden}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:230px;flex-shrink:0;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:background .3s;
+}
+.sidebar-hd{
+  padding:16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sidebar-hd-label{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);letter-spacing:.18em;text-transform:uppercase;
+}
+.cam-count{
+  font-family:'DM Mono',monospace;font-size:11px;
+  padding:1px 8px;border:1px solid var(--border2);
+  color:var(--accent);background:var(--accent-dim);
+}
+
+.cam-list{flex:1;overflow-y:auto;padding:6px 0}
+
+.si-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;
+  border-left:2px solid transparent;
+  cursor:pointer;transition:all .15s;
+  position:relative;
+}
+.si-item:hover{background:var(--surface2)}
+.si-item.active{
+  background:var(--accent-dim);
+  border-left-color:var(--accent);
+}
+.si-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--text3);flex-shrink:0;transition:background .3s;
+}
+.si-item.s-live .si-dot{background:var(--green);animation:pulse 2s infinite}
+.si-item.s-error .si-dot{background:var(--red)}
+.si-item.s-connecting .si-dot{background:var(--amber);animation:pulse 1s infinite}
+.si-info{flex:1;min-width:0}
+.si-name{
+  font-size:13px;font-weight:700;letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.si-url{
+  font-family:'DM Mono',monospace;font-size:8px;color:var(--text3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;
+}
+.si-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s;flex-shrink:0}
+.si-item:hover .si-actions{opacity:1}
+.si-btn{
+  width:22px;height:22px;display:grid;place-items:center;
+  border:1px solid var(--border2);background:transparent;
+  font-size:11px;color:var(--text3);border-radius:2px;
+  transition:all .15s;
+}
+.si-btn:hover.edit-btn{color:var(--accent);border-color:var(--accent);background:var(--accent-dim)}
+.si-btn:hover.del-btn{color:var(--red);border-color:var(--red);background:var(--red-dim)}
+
+.sidebar-empty{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:12px;padding:24px;text-align:center;
+}
+.sidebar-empty svg{width:40px;height:40px;fill:var(--text3);opacity:.4}
+.sidebar-empty p{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);line-height:1.8;letter-spacing:.06em;
+}
+
+.sidebar-nav{
+  flex-shrink:0;padding:10px 10px 14px;
+  border-top:1px solid var(--border);
+}
+.sidebar-link{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border:1px solid var(--border2);
+  text-decoration:none;color:var(--text2);
+  font-size:12px;font-weight:700;letter-spacing:.06em;
+  transition:all .15s;border-radius:2px;
+}
+.sidebar-link:hover{
+  border-color:var(--accent);color:var(--accent);background:var(--accent-dim);
+}
+.sidebar-link svg{width:16px;height:16px;fill:currentColor;flex-shrink:0}
+
+/* ── Grid area ── */
+.grid-area{
+  flex:1;overflow-y:auto;
+  padding:20px;display:flex;flex-direction:column;
+  background:var(--bg);transition:background .3s;
+}
+.cam-grid{
+  display:grid;gap:14px;
+  grid-template-columns:repeat(auto-fill,minmax(400px,1fr));
+}
+.grid-empty{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+}
+.grid-empty svg{width:72px;height:72px;fill:var(--text3);opacity:.15}
+.grid-empty h2{font-size:24px;font-weight:800;color:var(--text3);letter-spacing:.08em}
+.grid-empty p{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);opacity:.5}
+
+/* ════════════════════════════════════════════════════
+   CAMERA CARD
+════════════════════════════════════════════════════ */
+.cam-card{
+  background:var(--surface);border:1px solid var(--border);
+  display:flex;flex-direction:column;
+  transition:border-color .3s,box-shadow .3s;
+  animation:cardIn .35s ease both;
+}
+@keyframes cardIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.cam-card.s-live{border-color:var(--border2)}
+.cam-card.s-error{border-color:rgba(255,77,106,.3)}
+
+/* Card header */
+.card-hd{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--border);
+  background:var(--surface2);
+}
+.card-indicator{
+  width:9px;height:9px;border-radius:50%;
+  background:var(--text3);flex-shrink:0;transition:background .3s;
+}
+.cam-card.s-live .card-indicator{background:var(--green);animation:pulse 2s infinite}
+.cam-card.s-connecting .card-indicator{background:var(--amber);animation:pulse 1s infinite}
+.cam-card.s-error .card-indicator{background:var(--red)}
+
+.card-name{
+  font-size:14px;font-weight:700;letter-spacing:.06em;
+  flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.card-badge{
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:.14em;
+  padding:3px 9px;border:1px solid var(--border2);color:var(--text3);
+  text-transform:uppercase;transition:all .3s;flex-shrink:0;
+}
+.cam-card.s-live .card-badge{
+  border-color:var(--red);color:var(--red);
+  background:var(--red-dim);
+}
+.cam-card.s-connecting .card-badge{border-color:var(--amber);color:var(--amber);background:var(--amber-dim)}
+.cam-card.s-error .card-badge{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+
+.card-btns{display:flex;align-items:center;gap:5px;margin-left:2px}
+.c-btn{
+  padding:4px 11px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  border:1px solid;text-transform:uppercase;
+  border-radius:2px;transition:all .15s;font-family:'Syne',sans-serif;
+}
+.c-btn.conn{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.c-btn.conn:hover:not(:disabled){background:var(--accent-glow);box-shadow:0 0 12px var(--accent-glow)}
+.c-btn.conn:disabled{opacity:.35;cursor:not-allowed}
+.c-btn.stop{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+.c-btn.stop:hover{background:rgba(255,77,106,.22)}
+.c-btn.edit-c{border-color:var(--border2);color:var(--text2);background:transparent;padding:4px 9px}
+.c-btn.edit-c:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* Video wrap */
+.card-video{
+  position:relative;background:#000;
+  aspect-ratio:16/9;overflow:hidden;
+}
+video.cvid{width:100%;height:100%;object-fit:cover;display:block}
+
+/* scan-frame corners */
+.scan-frame{position:absolute;inset:0;pointer-events:none}
+.sf-c{position:absolute;width:16px;height:16px;border-color:var(--accent);border-style:solid;opacity:.5;transition:opacity .3s}
+.sf-c.tl{top:10px;left:10px;border-width:2px 0 0 2px}
+.sf-c.tr{top:10px;right:10px;border-width:2px 2px 0 0}
+.sf-c.bl{bottom:10px;left:10px;border-width:0 0 2px 2px}
+.sf-c.br{bottom:10px;right:10px;border-width:0 2px 2px 0}
+.cam-card.s-live .sf-c{opacity:.7}
+
+/* Overlay */
+.card-ovr{
+  position:absolute;inset:0;
+  background:rgba(12,15,20,.86);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  transition:opacity .35s;
+}
+[data-theme="light"] .card-ovr{background:rgba(240,235,226,.88)}
+.card-ovr.gone{opacity:0;pointer-events:none}
+.card-ovr svg{width:36px;height:36px;fill:var(--text3);opacity:.5}
+.ovr-msg{
+  font-family:'DM Mono',monospace;font-size:10px;
+  color:var(--text3);text-align:center;line-height:1.9;letter-spacing:.06em;
+}
+/* reconnect countdown */
+.ovr-retry{
+  font-family:'DM Mono',monospace;font-size:10px;
+  color:var(--amber);letter-spacing:.06em;display:none;
+}
+.ovr-retry.show{display:block}
+
+/* LIVE badge */
+.live-badge{
+  position:absolute;top:10px;left:10px;
+  display:flex;align-items:center;gap:5px;
+  background:var(--red);color:#fff;
+  font-family:'DM Mono',monospace;font-size:9px;font-weight:500;
+  letter-spacing:.12em;padding:3px 9px;
+  opacity:0;transition:opacity .3s;
+}
+.live-badge.on{opacity:1}
+.live-badge .ld{width:5px;height:5px;border-radius:50%;background:#fff;animation:pulse .9s infinite}
+
+.src-label{
+  position:absolute;bottom:8px;left:10px;right:10px;
+  font-family:'DM Mono',monospace;font-size:8px;
+  color:rgba(255,255,255,.28);letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+[data-theme="light"] .src-label{color:rgba(0,0,0,.3)}
+
+/* Card footer stats */
+.card-ft{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--border);
+}
+.stat-cell{
+  padding:7px 10px;border-right:1px solid var(--border);
+}
+.stat-cell:last-child{border-right:none}
+.stat-lbl{
+  font-family:'DM Mono',monospace;font-size:7px;
+  color:var(--text3);letter-spacing:.15em;text-transform:uppercase;
+}
+.stat-val{
+  font-family:'DM Mono',monospace;font-size:11px;
+  color:var(--text2);margin-top:2px;transition:color .3s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.stat-val.ok{color:var(--green)}
+.stat-val.err{color:var(--red)}
+.stat-val.warn{color:var(--amber)}
+
+/* retry counter chip */
+.retry-chip{
+  display:none;position:absolute;top:10px;right:10px;
+  background:rgba(255,185,64,.15);border:1px solid var(--amber);
+  color:var(--amber);font-family:'DM Mono',monospace;
+  font-size:8px;letter-spacing:.1em;padding:2px 7px;
+}
+.retry-chip.show{display:block}
+
+/* ════════════════════════════════════════════════════
+   MODAL (shared for add & edit)
+════════════════════════════════════════════════════ */
+.modal-bg{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.6);
+  backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+[data-theme="light"] .modal-bg{background:rgba(80,60,40,.35)}
+.modal-bg.open{opacity:1;pointer-events:all}
+.modal{
+  width:460px;max-width:calc(100vw - 32px);
+  background:var(--surface);border:1px solid var(--border2);
+  box-shadow:0 32px 80px rgba(0,0,0,.55);
+  transform:translateY(20px) scale(.98);
+  transition:transform .25s;
+}
+.modal-bg.open .modal{transform:none}
+
+.modal-head{
+  padding:18px 22px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+}
+.modal-icon{
+  width:32px;height:32px;border:1px solid var(--border2);
+  display:grid;place-items:center;font-size:15px;flex-shrink:0;
+  color:var(--accent);background:var(--accent-dim);
+}
+.modal-title-wrap{}
+.modal-title{font-size:16px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.modal-sub{font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);margin-top:2px;letter-spacing:.08em}
+.modal-x{
+  margin-left:auto;width:30px;height:30px;
+  display:grid;place-items:center;
+  border:1px solid var(--border2);color:var(--text3);font-size:16px;
+  background:transparent;transition:all .15s;
+}
+.modal-x:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+
+.modal-body{padding:22px;display:flex;flex-direction:column;gap:18px}
+
+.field{}
+.field label{
+  display:flex;align-items:center;gap:6px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  letter-spacing:.16em;color:var(--text3);text-transform:uppercase;
+  margin-bottom:7px;
+}
+.field-tag{
+  padding:1px 6px;background:var(--surface2);border:1px solid var(--border);
+  font-size:8px;color:var(--text3);
+}
+.field input{
+  width:100%;padding:10px 13px;
+  background:var(--bg);border:1px solid var(--border2);
+  color:var(--text);font-size:12px;letter-spacing:.04em;
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.field input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-dim);
+}
+.field input::placeholder{color:var(--text3)}
+.field-hint{
+  font-family:'DM Mono',monospace;font-size:8px;
+  color:var(--text3);margin-top:5px;line-height:1.7;letter-spacing:.04em;
+}
+
+.modal-err{
+  padding:9px 13px;
+  border:1px solid rgba(255,77,106,.4);
+  background:var(--red-dim);
+  font-family:'DM Mono',monospace;font-size:10px;
+  color:var(--red);display:none;line-height:1.6;
+}
+.modal-err.show{display:block}
+
+.modal-ft{
+  padding:16px 22px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.modal-ft-left{
+  font-family:'DM Mono',monospace;font-size:9px;color:var(--text3);
+  letter-spacing:.08em;
+}
+.modal-ft-right{display:flex;gap:8px}
+
+.m-btn{
+  padding:9px 22px;font-size:11px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid;border-radius:2px;transition:all .18s;
+}
+.m-btn.cancel{
+  border-color:var(--border2);color:var(--text2);background:transparent;
+}
+.m-btn.cancel:hover{border-color:var(--text2)}
+.m-btn.primary{
+  border-color:var(--accent);color:var(--accent);background:var(--accent-dim);
+}
+.m-btn.primary:hover:not(:disabled){background:var(--accent-glow);box-shadow:0 0 14px var(--accent-glow)}
+.m-btn.primary:disabled{opacity:.35;cursor:not-allowed}
+
+/* ════════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════════ */
+.toast-area{
+  position:fixed;bottom:24px;right:24px;
+  display:flex;flex-direction:column;gap:8px;
+  z-index:300;pointer-events:none;
+}
+.toast{
+  padding:10px 18px;
+  background:var(--surface2);border:1px solid var(--border2);
+  font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;
+  color:var(--text);
+  box-shadow:0 8px 24px var(--shadow);
+  animation:toastIn .3s ease both;
+  display:flex;align-items:center;gap:8px;
+  max-width:300px;
+}
+.toast.ok{border-color:var(--green);color:var(--green);background:var(--green-dim)}
+.toast.err{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateX(16px)}}
+
+/* ════════════════════════════════════════════════════
+   FACE DETECTION PANEL
+════════════════════════════════════════════════════ */
+.face-panel{
+  width:300px;flex-shrink:0;
+  background:var(--surface);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  transition:background .3s;
+}
+.face-panel-hd{
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  flex-shrink:0;
+}
+.face-panel-title{
+  display:flex;align-items:center;gap:8px;
+}
+.face-panel-title svg{width:14px;height:14px;fill:var(--accent);flex-shrink:0}
+.face-panel-label{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);letter-spacing:.18em;text-transform:uppercase;
+}
+.face-count-badge{
+  font-family:'DM Mono',monospace;font-size:11px;
+  padding:1px 8px;border:1px solid var(--border2);
+  color:var(--accent);background:var(--accent-dim);
+  margin-left:auto;
+}
+.face-panel-actions{display:flex;gap:4px;flex-shrink:0}
+.face-act-btn{
+  width:26px;height:26px;border:1px solid var(--border2);
+  background:transparent;color:var(--text3);
+  display:grid;place-items:center;font-size:11px;
+  border-radius:2px;transition:all .15s;cursor:pointer;
+}
+.face-act-btn:hover{border-color:var(--red);color:var(--red);background:var(--red-dim)}
+
+.face-ws-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--text3);flex-shrink:0;transition:background .3s;
+}
+.face-ws-dot.connected{background:var(--green);animation:pulse 2s infinite}
+.face-ws-dot.error{background:var(--red)}
+
+.face-log{flex:1;overflow-y:auto;padding:6px 0}
+
+.face-empty{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  padding:24px;text-align:center;
+}
+.face-empty svg{width:40px;height:40px;fill:var(--text3);opacity:.3}
+.face-empty p{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);line-height:1.8;letter-spacing:.06em;
+}
+
+.face-event{
+  display:flex;gap:10px;
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  transition:background .15s;animation:feIn .3s ease both;
+  cursor:default;
+}
+.face-event:hover{background:var(--surface2)}
+@keyframes feIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+
+.face-thumb{
+  width:80px;height:80px;flex-shrink:0;
+  border:1px solid var(--border2);
+  background:var(--bg2);
+  object-fit:cover;border-radius:2px;
+  transition:border-color .2s;
+  image-rendering:auto;
+}
+.face-event:hover .face-thumb{border-color:var(--accent)}
+.face-thumb-placeholder{
+  width:80px;height:80px;flex-shrink:0;
+  border:1px dashed var(--border2);
+  background:var(--bg2);border-radius:2px;
+  display:grid;place-items:center;
+}
+.face-thumb-placeholder svg{width:22px;height:22px;fill:var(--text3);opacity:.35}
+
+.face-meta{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.face-cam-name{
+  font-size:12px;font-weight:700;letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.face-time{
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--text3);letter-spacing:.04em;
+}
+.face-score{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--green);letter-spacing:.06em;
+  background:var(--green-dim);border:1px solid rgba(45,223,143,.25);
+  padding:1px 6px;border-radius:2px;width:fit-content;
+}
+
+
+.face-identity{
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+}
+.face-id-name{
+  font-size:12px;font-weight:700;letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  max-width:120px;
+}
+.face-badge-known{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:.08em;
+  padding:1px 6px;border-radius:2px;flex-shrink:0;
+  background:var(--green-dim);border:1px solid rgba(45,223,143,.3);color:var(--green);
+}
+.face-badge-unknown{
+  display:inline-flex;align-items:center;gap:4px;
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:.08em;
+  padding:1px 6px;border-radius:2px;flex-shrink:0;
+  background:var(--amber-dim);border:1px solid rgba(255,185,64,.3);color:var(--amber);
+}
+
+/* worker status chip on card */
+.worker-chip{
+  position:absolute;bottom:8px;right:10px;
+  display:flex;align-items:center;gap:5px;
+  font-family:'DM Mono',monospace;font-size:8px;letter-spacing:.1em;
+  padding:2px 8px;border-radius:2px;
+  border:1px solid var(--border2);background:rgba(12,15,20,.7);
+  color:var(--text3);transition:all .3s;pointer-events:none;
+}
+.worker-chip.wc-on{border-color:var(--green);color:var(--green);background:rgba(45,223,143,.12)}
+.worker-chip.wc-off{border-color:var(--red);color:var(--red);background:rgba(255,77,106,.1)}
+.worker-chip .wd{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.worker-chip.wc-on .wd{animation:pulse .9s infinite}
+
+.card-preview{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;opacity:0;transition:opacity .4s;pointer-events:none;
+}
+.card-preview.visible{opacity:1}
+
+/* live flash */
+@keyframes flashBorder{0%,100%{border-color:var(--border)}50%{border-color:var(--accent)}}
+.face-panel.flash{animation:flashBorder .4s ease}
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <circle class="bm-ring" cx="18" cy="18" r="16" stroke-dasharray="4 6"/>
+        <circle class="bm-inner" cx="18" cy="18" r="10"/>
+        <circle class="bm-dot" cx="18" cy="18" r="4"/>
+        <circle class="bm-dot" cx="18" cy="4" r="2" opacity=".5"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">Atomo</div>
+      <!--<div class="brand-tagline">MediaMTX · WHEP · WebRTC</div> -->
+    </div>
+  </div>
+
+  <div class="topbar-center">
+    <div class="nav-tabs">
+      <a class="nav-tab active" href="/">
+        <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        Live
+      </a>
+      <a class="nav-tab" href="/clusters.html">
+        <svg viewBox="0 0 24 24" style="width:11px;height:11px;fill:currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        Face Clusters
+      </a>
+    </div>
+    <div class="status-badge" id="sysBadge">
+      <div class="pulse"></div>
+      <span id="sysTxt">INITIALISING</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="clock" id="clock"></div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">☀</button>
+    <button class="btn-add" onclick="openModal()">
+      <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      Add Camera
+    </button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="shell">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-hd">
+      <span class="sidebar-hd-label">Cameras</span>
+      <span class="cam-count" id="camCount">0</span>
+    </div>
+    <div class="cam-list" id="camList">
+      <div class="sidebar-empty" id="sbEmpty">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        <p>No cameras yet.<br>Click + Add Camera.</p>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <a class="sidebar-link" href="/clusters.html">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span>Recognise Face</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Grid -->
+  <div class="grid-area" id="gridArea">
+    <div class="grid-empty" id="gridEmpty">
+      <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+      <h2>No Cameras</h2>
+      <p>Add an RTSP source to begin live monitoring</p>
+    </div>
+    <div class="cam-grid" id="camGrid"></div>
+  </div>
+
+  <!-- Face Detection Panel -->
+  <aside class="face-panel" id="facePanel">
+    <div class="face-panel-hd">
+      <div class="face-panel-title">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <span class="face-panel-label">Face Events</span>
+        <div class="face-ws-dot" id="faceWsDot" title="WebSocket status"></div>
+      </div>
+      <span class="face-count-badge" id="faceCount">0</span>
+      <div class="face-panel-actions">
+        <button class="face-act-btn" title="Clear log" onclick="clearFaceLog()">✕</button>
+      </div>
+    </div>
+    <div class="face-log" id="faceLog">
+      <div class="face-empty" id="faceEmpty">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+        <p>No faces detected yet.<br>Start face_detector.py<br>to begin.</p>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-icon" id="modalIcon">＋</div>
+      <div class="modal-title-wrap">
+        <div class="modal-title" id="modalTitle">Add Camera</div>
+        <div class="modal-sub" id="modalSub">Register a new RTSP source</div>
+      </div>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-err" id="modalErr"></div>
+      <div class="field">
+        <label>Camera Name <span class="field-tag">REQUIRED</span></label>
+        <input type="text" id="inName" placeholder="e.g. Front Door, Parking Lot, Lobby…" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label>RTSP URL <span class="field-tag">REQUIRED</span></label>
+        <input type="text" id="inUrl" placeholder="rtsp://user:pass@192.168.1.x:554/stream" autocomplete="off"/>
+        <div class="field-hint">✦ Use rtsp:// prefix &nbsp;·&nbsp; TCP transport &nbsp;·&nbsp; Auth via URL credentials</div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <div class="modal-ft-left" id="modalHint">Config hot-reloads MediaMTX on save</div>
+      <div class="modal-ft-right">
+        <button class="m-btn cancel" onclick="closeModal()">Cancel</button>
+        <button class="m-btn primary" id="saveBtn" onclick="saveCamera()">Save & Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST AREA -->
+<div class="toast-area" id="toastArea"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════════════
+
+let cameras   = [];
+let peerConns = {};       // id → RTCPeerConnection
+let retryMeta = {};       // id → { count, timer, delay }
+let editingId = null;     // null = add mode, string = edit mode
+
+const MAX_DELAY = 30000;
+const BASE_DELAY = 2000;
+
+// ════════════════════════════════════════════════════════════════════════
+// THEME
+// ════════════════════════════════════════════════════════════════════════
+
+function getTheme(){ return document.documentElement.getAttribute('data-theme') || 'dark' }
+function toggleTheme(){
+  const next = getTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '☀' : '☾';
+  localStorage.setItem('nvr-theme', next);
+}
+(function initTheme(){
+  const saved = localStorage.getItem('nvr-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  document.getElementById('themeBtn').textContent = saved === 'dark' ? '☀' : '☾';
+})();
+
+// ════════════════════════════════════════════════════════════════════════
+// CLOCK
+// ════════════════════════════════════════════════════════════════════════
+
+function tickClock(){
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) +
+    '  ' + n.toTimeString().slice(0,8);
+}
+setInterval(tickClock,1000); tickClock();
+
+// ════════════════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════════════════
+
+function toast(msg, type=''){
+  const area = document.getElementById('toastArea');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(()=>{
+    el.style.animation='toastOut .3s ease forwards';
+    setTimeout(()=>el.remove(), 350);
+  }, 3000);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// LOAD CAMERAS
+// ════════════════════════════════════════════════════════════════════════
+
+async function loadCameras(){
+  const r = await fetch('/api/cameras');
+  cameras = await r.json();
+  renderSidebar(); renderGrid();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SIDEBAR
+// ════════════════════════════════════════════════════════════════════════
+
+function renderSidebar(){
+  const list = document.getElementById('camList');
+  list.querySelectorAll('.si-item').forEach(e=>e.remove());
+  document.getElementById('camCount').textContent = cameras.length;
+  if(!cameras.length){ document.getElementById('sbEmpty').style.display='flex'; return; }
+  document.getElementById('sbEmpty').style.display='none';
+  cameras.forEach(cam => list.appendChild(makeSiItem(cam)));
+}
+
+function makeSiItem(cam){
+  const d = document.createElement('div');
+  d.className='si-item'; d.id=`si-${cam.id}`;
+  const masked = cam.url.replace(/:[^@]*@/,':**@');
+  d.innerHTML=`
+    <div class="si-dot"></div>
+    <div class="si-info">
+      <div class="si-name">${esc(cam.name)}</div>
+      <div class="si-url">${esc(masked)}</div>
+    </div>
+    <div class="si-actions">
+      <button class="si-btn edit-btn" title="Edit" onclick="openEdit('${cam.id}',event)">✎</button>
+      <button class="si-btn del-btn"  title="Remove" onclick="removeCamera('${cam.id}',event)">✕</button>
+    </div>`;
+  d.addEventListener('click', ()=>scrollToCard(cam.id));
+  return d;
+}
+
+function siSetState(id, state){
+  const el = document.getElementById(`si-${id}`);
+  if(!el) return;
+  el.classList.remove('s-live','s-error','s-connecting');
+  if(state) el.classList.add('s-'+state);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// GRID
+// ════════════════════════════════════════════════════════════════════════
+
+function renderGrid(){
+  const grid = document.getElementById('camGrid');
+  grid.querySelectorAll('.cam-card').forEach(e=>e.remove());
+  if(!cameras.length){ document.getElementById('gridEmpty').style.display='flex'; return; }
+  document.getElementById('gridEmpty').style.display='none';
+  cameras.forEach(cam => grid.appendChild(makeCard(cam)));
+}
+
+function makeCard(cam){
+  const d = document.createElement('div');
+  d.className='cam-card'; d.id=`card-${cam.id}`;
+  const masked = cam.url.replace(/:[^@]*@/,':**@');
+  d.innerHTML=`
+    <div class="card-hd">
+      <div class="card-indicator"></div>
+      <div class="card-name">${esc(cam.name)}</div>
+      <div class="card-badge" id="cbadge-${cam.id}">IDLE</div>
+      <div class="card-btns">
+        <button class="c-btn edit-c" onclick="openEdit('${cam.id}',event)" title="Edit">✎</button>
+        <button class="c-btn conn" id="cbtn-${cam.id}" onclick="connect('${cam.id}')">▶ Connect</button>
+        <button class="c-btn stop" id="cstop-${cam.id}" style="display:none" onclick="manualDisconnect('${cam.id}')">■ Stop</button>
+      </div>
+    </div>
+    <div class="card-video">
+      <video class="cvid" id="vid-${cam.id}" autoplay playsinline muted></video>
+      <div class="scan-frame">
+        <div class="sf-c tl"></div><div class="sf-c tr"></div>
+        <div class="sf-c bl"></div><div class="sf-c br"></div>
+      </div>
+      <img class="card-preview" id="cprev-${cam.id}" alt="preview"/>
+      <div class="card-ovr" id="covr-${cam.id}">
+        <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        <div class="ovr-msg" id="covrmsg-${cam.id}">NOT CONNECTED\nPress ▶ Connect</div>
+        <div class="ovr-retry" id="covr-retry-${cam.id}"></div>
+      </div>
+      <div class="live-badge" id="clive-${cam.id}"><div class="ld"></div>LIVE</div>
+      <div class="retry-chip" id="cretry-${cam.id}"></div>
+      <div class="src-label">${esc(masked)}</div>
+      <div class="worker-chip" id="cwrk-${cam.id}"><div class="wd"></div><span>WORKER</span></div>
+    </div>
+    <div class="card-ft">
+      <div class="stat-cell"><div class="stat-lbl">ICE</div><div class="stat-val" id="cice-${cam.id}">—</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Conn</div><div class="stat-val" id="cconn-${cam.id}">—</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Video</div><div class="stat-val" id="cvideo-${cam.id}">—</div></div>
+      <div class="stat-cell"><div class="stat-lbl">Audio</div><div class="stat-val" id="caudio-${cam.id}">—</div></div>
+    </div>`;
+  return d;
+}
+
+function scrollToCard(id){
+  const el = document.getElementById(`card-${id}`);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CARD STATE HELPERS
+// ════════════════════════════════════════════════════════════════════════
+
+function cardSetClass(id, state){
+  const c = document.getElementById(`card-${id}`);
+  if(!c) return;
+  c.classList.remove('s-live','s-connecting','s-error');
+  if(state) c.classList.add('s-'+state);
+  const badge = document.getElementById(`cbadge-${id}`);
+  if(badge){
+    const map = {live:'LIVE',connecting:'CONNECTING…',error:'ERROR',idle:'IDLE'};
+    badge.textContent = map[state] || 'IDLE';
+  }
+}
+
+function cardSetOverlay(id, show, msg, retryMsg){
+  const ovr = document.getElementById(`covr-${id}`);
+  const txt = document.getElementById(`covrmsg-${id}`);
+  const rtr = document.getElementById(`covr-retry-${id}`);
+  const liv = document.getElementById(`clive-${id}`);
+  if(!ovr) return;
+  if(show){
+    ovr.classList.remove('gone');
+    if(txt) txt.innerHTML = (msg||'').replace(/\n/g,'<br>');
+    if(rtr){ rtr.textContent = retryMsg||''; rtr.className='ovr-retry'+(retryMsg?' show':''); }
+    if(liv) liv.classList.remove('on');
+  } else {
+    ovr.classList.add('gone');
+    if(liv) liv.classList.add('on');
+    if(rtr) rtr.className='ovr-retry';
+  }
+}
+
+function statSet(prefix, id, val, cls){
+  const el = document.getElementById(`${prefix}-${id}`);
+  if(!el) return;
+  el.textContent = val;
+  el.className = 'stat-val' + (cls?' '+cls:'');
+}
+
+function stateClass(s){
+  if(['connected','completed'].includes(s)) return 'ok';
+  if(['failed','disconnected','closed'].includes(s)) return 'err';
+  return 'warn';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// RECONNECTION LOGIC
+// ════════════════════════════════════════════════════════════════════════
+
+function scheduleReconnect(id){
+  const meta = retryMeta[id] || {count:0, delay:BASE_DELAY, timer:null, manual:false};
+  if(meta.manual){ retryMeta[id]=meta; return; } // user stopped manually
+
+  meta.count++;
+  const delay = Math.min(meta.delay, MAX_DELAY);
+  meta.delay = Math.min(delay * 2, MAX_DELAY); // exponential backoff
+
+  retryMeta[id] = meta;
+
+  // Show retry chip on card
+  const chip = document.getElementById(`cretry-${id}`);
+  if(chip){ chip.textContent=`RETRY #${meta.count}`; chip.className='retry-chip show'; }
+
+  // Countdown in overlay
+  let countdown = Math.round(delay/1000);
+  const rtrEl = document.getElementById(`covr-retry-${id}`);
+  const tick = setInterval(()=>{
+    countdown--;
+    if(rtrEl && rtrEl.classList.contains('show')) rtrEl.textContent = `Reconnecting in ${countdown}s…`;
+    if(countdown <= 0) clearInterval(tick);
+  }, 1000);
+
+  cardSetOverlay(id, true, `DISCONNECTED\nRetry #${meta.count}`, `Reconnecting in ${Math.round(delay/1000)}s…`);
+
+  meta.timer = setTimeout(()=>{
+    clearInterval(tick);
+    const m2 = retryMeta[id];
+    if(!m2 || m2.manual) return;
+    connect(id, true);
+  }, delay);
+}
+
+function resetRetry(id){
+  if(retryMeta[id]){
+    clearTimeout(retryMeta[id].timer);
+    retryMeta[id] = null;
+  }
+  const chip = document.getElementById(`cretry-${id}`);
+  if(chip) chip.className='retry-chip';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// CONNECT / DISCONNECT
+// ════════════════════════════════════════════════════════════════════════
+
+async function connect(id, isRetry=false){
+  if(peerConns[id]){ peerConns[id].close(); delete peerConns[id]; }
+
+  const cam = cameras.find(c=>c.id===id);
+  if(!cam) return;
+
+  cardSetClass(id,'connecting');
+  siSetState(id,'connecting');
+  cardSetOverlay(id, true, 'CONNECTING…', '');
+  document.getElementById(`cbtn-${id}`).disabled = true;
+  document.getElementById(`cstop-${id}`).style.display='none';
+  ['cice','cconn','cvideo','caudio'].forEach(p=>statSet(p,id,'—',''));
+
+  const pc = new RTCPeerConnection({ iceServers:[{urls:'stun:stun.l.google.com:19302'}] });
+  peerConns[id] = pc;
+
+  pc.addTransceiver('video',{direction:'recvonly'});
+  pc.addTransceiver('audio',{direction:'recvonly'});
+
+  const ms = new MediaStream();
+  const vid = document.getElementById(`vid-${id}`);
+  if(vid) vid.srcObject = ms;
+
+  pc.ontrack = e => {
+    ms.addTrack(e.track);
+    if(e.track.kind==='video') statSet('cvideo',id,'H.264','ok');
+    if(e.track.kind==='audio') statSet('caudio',id,'AAC','ok');
+  };
+
+  pc.oniceconnectionstatechange = ()=>{
+    const s = pc.iceConnectionState;
+    statSet('cice',id,s.toUpperCase(),stateClass(s));
+  };
+
+  pc.onconnectionstatechange = ()=>{
+    const s = pc.connectionState;
+    statSet('cconn',id,s.toUpperCase(),stateClass(s));
+
+    if(s==='connected'){
+      resetRetry(id);
+      cardSetClass(id,'live');
+      siSetState(id,'live');
+      cardSetOverlay(id,false);
+      document.getElementById(`cbtn-${id}`).disabled=false;
+      document.getElementById(`cbtn-${id}`).style.display='none';
+      document.getElementById(`cstop-${id}`).style.display='';
+    }
+
+    if(s==='failed'||s==='disconnected'){
+      cardSetClass(id,'error');
+      siSetState(id,'error');
+      document.getElementById(`cbtn-${id}`).disabled=false;
+      document.getElementById(`cbtn-${id}`).style.display='';
+      document.getElementById(`cstop-${id}`).style.display='none';
+      if(peerConns[id]){ peerConns[id].close(); delete peerConns[id]; }
+      scheduleReconnect(id);
+    }
+  };
+
+  try{
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    await new Promise(res=>{
+      if(pc.iceGatheringState==='complete') return res();
+      pc.onicegatheringstatechange = ()=>{ if(pc.iceGatheringState==='complete') res(); };
+      setTimeout(res, 3000);
+    });
+
+    const resp = await fetch(`/whep/${id}`,{
+      method:'POST',
+      headers:{'Content-Type':'application/sdp'},
+      body:pc.localDescription.sdp
+    });
+
+    if(!resp.ok){
+      const txt = await resp.text();
+      throw new Error(`WHEP ${resp.status}: ${txt}`);
+    }
+
+    const sdp = await resp.text();
+    await pc.setRemoteDescription({type:'answer',sdp});
+
+  } catch(err){
+    cardSetClass(id,'error');
+    siSetState(id,'error');
+    if(pc) pc.close();
+    delete peerConns[id];
+    document.getElementById(`cbtn-${id}`).disabled=false;
+    document.getElementById(`cbtn-${id}`).style.display='';
+    document.getElementById(`cstop-${id}`).style.display='none';
+    scheduleReconnect(id);
+  }
+}
+
+function manualDisconnect(id){
+  // Mark as manual so reconnect doesn't fire
+  if(!retryMeta[id]) retryMeta[id]={count:0,delay:BASE_DELAY,timer:null};
+  retryMeta[id].manual = true;
+  clearTimeout(retryMeta[id].timer);
+
+  if(peerConns[id]){ peerConns[id].close(); delete peerConns[id]; }
+  const vid = document.getElementById(`vid-${id}`);
+  if(vid) vid.srcObject=null;
+
+  cardSetClass(id,'idle');
+  siSetState(id,'');
+  cardSetOverlay(id,true,'NOT CONNECTED\nPress ▶ Connect','');
+  document.getElementById(`cbtn-${id}`).disabled=false;
+  document.getElementById(`cbtn-${id}`).style.display='';
+  document.getElementById(`cstop-${id}`).style.display='none';
+  ['cice','cconn','cvideo','caudio'].forEach(p=>statSet(p,id,'—',''));
+  const chip = document.getElementById(`cretry-${id}`);
+  if(chip) chip.className='retry-chip';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ADD / EDIT / DELETE
+// ════════════════════════════════════════════════════════════════════════
+
+function openModal(camId){
+  editingId = camId || null;
+  const cam = camId ? cameras.find(c=>c.id===camId) : null;
+
+  document.getElementById('inName').value = cam ? cam.name : '';
+  document.getElementById('inUrl').value  = cam ? cam.url  : '';
+  document.getElementById('modalErr').className='modal-err';
+  document.getElementById('saveBtn').textContent = cam ? 'Save Changes' : 'Save & Connect';
+  document.getElementById('modalTitle').textContent = cam ? 'Edit Camera' : 'Add Camera';
+  document.getElementById('modalSub').textContent   = cam ? `Editing: ${cam.name}` : 'Register a new RTSP source';
+  document.getElementById('modalIcon').textContent  = cam ? '✎' : '＋';
+  document.getElementById('modalHint').textContent  = cam ? 'Changes restart the stream path' : 'Config hot-reloads MediaMTX on save';
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(()=>document.getElementById('inName').focus(),160);
+}
+
+function openEdit(id, e){
+  e && e.stopPropagation();
+  openModal(id);
+}
+
+function closeModal(){
+  document.getElementById('modalBg').classList.remove('open');
+  editingId = null;
+}
+
+document.getElementById('modalBg').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modalBg')) closeModal();
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+async function saveCamera(){
+  const name = document.getElementById('inName').value.trim();
+  const url  = document.getElementById('inUrl').value.trim();
+  const errEl = document.getElementById('modalErr');
+  const saveBtn = document.getElementById('saveBtn');
+
+  const showErr = m=>{ errEl.textContent=m; errEl.className='modal-err show'; };
+
+  if(!name) return showErr('Camera name is required.');
+  if(!url)  return showErr('RTSP URL is required.');
+  if(!url.startsWith('rtsp://')) return showErr('URL must start with rtsp://');
+
+  saveBtn.disabled=true;
+  errEl.className='modal-err';
+
+  try{
+    if(editingId){
+      // EDIT — delete old + re-add
+      const old = cameras.find(c=>c.id===editingId);
+      const wasConnected = !!peerConns[editingId];
+
+      // Disconnect existing stream
+      manualDisconnect(editingId);
+      await fetch(`/api/cameras/${editingId}`,{method:'DELETE'});
+      cameras = cameras.filter(c=>c.id!==editingId);
+
+      // Remove card & sidebar item
+      document.getElementById(`card-${editingId}`)?.remove();
+      document.getElementById(`si-${editingId}`)?.remove();
+
+      // Add new
+      const r = await fetch('/api/cameras',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name,url})
+      });
+      if(!r.ok) throw new Error((await r.json()).error||'Server error');
+      const cam = await r.json();
+      cameras.push(cam);
+
+      // Insert sidebar item + card
+      document.getElementById('sbEmpty').style.display='none';
+      document.getElementById('gridEmpty').style.display='none';
+      const list = document.getElementById('camList');
+      list.appendChild(makeSiItem(cam));
+      document.getElementById('camGrid').appendChild(makeCard(cam));
+      document.getElementById('camCount').textContent = cameras.length;
+
+      closeModal();
+      toast(`"${name}" updated`, 'ok');
+      if(wasConnected) setTimeout(()=>connect(cam.id), 2500);
+      else{
+        const m = retryMeta[cam.id]; if(m) m.manual=false;
+      }
+
+    } else {
+      // ADD
+      const r = await fetch('/api/cameras',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({name,url})
+      });
+      if(!r.ok) throw new Error((await r.json()).error||'Server error');
+      const cam = await r.json();
+      cameras.push(cam);
+
+      document.getElementById('sbEmpty').style.display='none';
+      document.getElementById('gridEmpty').style.display='none';
+      document.getElementById('camList').appendChild(makeSiItem(cam));
+      document.getElementById('camGrid').appendChild(makeCard(cam));
+      document.getElementById('camCount').textContent = cameras.length;
+
+      closeModal();
+      toast(`"${name}" added`, 'ok');
+      setTimeout(()=>connect(cam.id), 2500);
+    }
+  } catch(e){
+    document.getElementById('modalErr').textContent = e.message;
+    document.getElementById('modalErr').className='modal-err show';
+  } finally {
+    saveBtn.disabled=false;
+  }
+}
+
+async function removeCamera(id, e){
+  e && e.stopPropagation();
+  const cam = cameras.find(c=>c.id===id);
+  if(!confirm(`Remove "${cam?.name||id}"?`)) return;
+
+  manualDisconnect(id);
+  resetRetry(id);
+  await fetch(`/api/cameras/${id}`,{method:'DELETE'});
+  cameras = cameras.filter(c=>c.id!==id);
+
+  document.getElementById(`card-${id}`)?.remove();
+  document.getElementById(`si-${id}`)?.remove();
+  document.getElementById('camCount').textContent = cameras.length;
+
+  if(!cameras.length){
+    document.getElementById('gridEmpty').style.display='flex';
+    document.getElementById('sbEmpty').style.display='flex';
+  }
+  toast(`"${cam?.name||id}" removed`,'');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// SYSTEM STATUS POLL
+// ════════════════════════════════════════════════════════════════════════
+
+async function pollStatus(){
+  try{
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const badge = document.getElementById('sysBadge');
+    const txt   = document.getElementById('sysTxt');
+    if(!badge || !txt) return;
+    if(d.ok){
+      const live = (d.paths||[]).filter(p=>p.ready).length;
+      const total = cameras.length;
+      badge.className = 'status-badge' + (live>0?' ok':'');
+      txt.textContent = total ? `${live}/${total} LIVE` : 'MTX READY';
+    } else {
+      badge.className='status-badge';
+      txt.textContent='MTX STARTING…';
+    }
+  } catch{}
+}
+setInterval(pollStatus,4000);
+
+// ════════════════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════════════════
+
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// BOOT
+// ════════════════════════════════════════════════════════════════════════
+
+loadCameras().then(()=>{
+  setTimeout(()=> cameras.forEach(cam=>{
+    // allow reconnect
+    if(retryMeta[cam.id]) retryMeta[cam.id].manual = false;
+    connect(cam.id);
+  }), 2200);
+});
+pollStatus();
+
+// ════════════════════════════════════════════════════════════════════════
+// FACE DETECTION EVENTS
+// ════════════════════════════════════════════════════════════════════════
+
+let faceEventCount = 0;
+const MAX_FACE_ITEMS = 100;
+let faceWs = null;
+
+function faceTimestamp(ms) {
+  const d = new Date(ms);
+  return d.toLocaleTimeString('en-GB', { hour12: false }) +
+    '.' + String(d.getMilliseconds()).padStart(3,'0');
+}
+
+function makeFaceEventEl(ev) {
+  const el = document.createElement('div');
+  el.className = 'face-event';
+  const ts       = faceTimestamp(ev.ts || ev.serverTs || Date.now());
+  const scoreVal = ev.score ? (ev.score * 100).toFixed(1) + '%' : '—';
+  const isKnown  = ev.known === true;
+  const name     = ev.name || (isKnown ? ev.camName : 'Unknown');
+  const badge    = isKnown
+    ? `<span class="face-badge-known">&#10003; KNOWN</span>`
+    : `<span class="face-badge-unknown">&#63; UNKNOWN</span>`;
+  const thumb = ev.crop
+    ? `<img class="face-thumb" src="data:image/jpeg;base64,${ev.crop}" alt="face"/>`
+    : `<div class="face-thumb-placeholder"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>`;
+  el.innerHTML = `
+    ${thumb}
+    <div class="face-meta">
+      <div class="face-identity">
+        <div class="face-id-name">${esc(name)}</div>
+        ${badge}
+      </div>
+      <div class="face-cam-name" style="font-size:10px;font-weight:400;color:var(--text3)">${esc(ev.camName || ev.camId || '—')}</div>
+      <div class="face-time">${ts}</div>
+      <div class="face-score">&#9632; ${scoreVal}</div>
+    </div>`;
+  return el;
+}
+
+function addFaceEvent(ev) {
+  const log   = document.getElementById('faceLog');
+  const empty = document.getElementById('faceEmpty');
+
+  if (empty) empty.style.display = 'none';
+
+  const el = makeFaceEventEl(ev);
+  // Prepend (newest on top)
+  const firstItem = log.querySelector('.face-event');
+  if (firstItem) log.insertBefore(el, firstItem);
+  else           log.appendChild(el);
+
+  // Prune old items
+  const items = log.querySelectorAll('.face-event');
+  if (items.length > MAX_FACE_ITEMS) items[items.length - 1].remove();
+
+  faceEventCount++;
+  document.getElementById('faceCount').textContent = faceEventCount;
+
+  // Flash panel border
+  const panel = document.getElementById('facePanel');
+  panel.classList.remove('flash');
+  void panel.offsetWidth;
+  panel.classList.add('flash');
+}
+
+function clearFaceLog() {
+  fetch('/api/face-events', { method: 'DELETE' });
+  document.getElementById('faceLog').querySelectorAll('.face-event').forEach(e => e.remove());
+  faceEventCount = 0;
+  document.getElementById('faceCount').textContent = '0';
+  document.getElementById('faceEmpty').style.display = '';
+}
+
+function setWsDot(state) {
+  const dot = document.getElementById('faceWsDot');
+  dot.className = 'face-ws-dot' + (state === 'connected' ? ' connected' : state === 'error' ? ' error' : '');
+}
+
+function connectFaceWs() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  faceWs = new WebSocket(`${proto}://${location.host}/ws`);
+
+  faceWs.onopen = () => setWsDot('connected');
+  faceWs.onclose = () => {
+    setWsDot('');
+    setTimeout(connectFaceWs, 3000);
+  };
+  faceWs.onerror = () => setWsDot('error');
+
+  faceWs.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'face_event') {
+        addFaceEvent(msg.event);
+      } else if (msg.type === 'face_history') {
+        // Populate history (oldest first so prepend order is correct)
+        const evs = (msg.events || []).slice().reverse();
+        evs.forEach(addFaceEvent);
+      } else if (msg.type === 'face_clear') {
+        document.getElementById('faceLog').querySelectorAll('.face-event').forEach(e => e.remove());
+        faceEventCount = 0;
+        document.getElementById('faceCount').textContent = '0';
+        document.getElementById('faceEmpty').style.display = '';
+      } else if (msg.type === 'cam_status') {
+        setWorkerChip(msg.id, msg.connected);
+      } else if (msg.type === 'cam_status_all') {
+        // Restore all worker statuses on WS (re)connect
+        for (const [id, s] of Object.entries(msg.statuses || {})) {
+          setWorkerChip(id, s.connected);
+        }
+      } else if (msg.type === 'cam_preview') {
+        setCardPreview(msg.id, msg.previewB64);
+      }
+    } catch {}
+  };
+}
+
+
+// ════════════════════════════════════════════════════════════════════════
+// WORKER STATUS & PREVIEW
+// ════════════════════════════════════════════════════════════════════════
+
+function setWorkerChip(id, connected) {
+  const el = document.getElementById(`cwrk-${id}`);
+  if (!el) return;
+  el.className = 'worker-chip' + (connected ? ' wc-on' : ' wc-off');
+  el.querySelector('span').textContent = connected ? 'AI ACTIVE' : 'AI OFF';
+}
+
+function setCardPreview(id, b64) {
+  // Only show preview when WHEP is not live (overlay is visible)
+  const prevImg = document.getElementById(`cprev-${id}`);
+  if (!prevImg) return;
+  prevImg.src = `data:image/jpeg;base64,${b64}`;
+  // Show preview behind overlay only if WHEP not connected
+  const ovr = document.getElementById(`covr-${id}`);
+  const whepLive = ovr && ovr.classList.contains('gone');
+  if (!whepLive) {
+    prevImg.classList.add('visible');
+  } else {
+    prevImg.classList.remove('visible');
+  }
+}
+
+connectFaceWs();
+
+</script>
+</body>
+</html>

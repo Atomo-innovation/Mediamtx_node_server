@@ -1,0 +1,14 @@
+[
+  {
+    "id": "front_mpp3xe99",
+    "name": "front",
+    "url": "rtsp://admin:admin123456@192.168.1.10:8554/profile0",
+    "addedAt": "2026-05-28T06:23:39.885Z"
+  },
+  {
+    "id": "back_mpp4tnub",
+    "name": "back",
+    "url": "rtsp://admin12345:admin12345@192.168.1.102/stream1",
+    "addedAt": "2026-05-28T06:48:45.299Z"
+  }
+]
